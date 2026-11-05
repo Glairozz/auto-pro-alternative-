@@ -81,7 +81,7 @@ public class Services {
         table3.setModel(cartModel);
         billingMyBillsTable.setModel(billModel);
         billingTransacRecordTable.setModel(transModel);
-        hideTableColumn(table1, 8);
+        hideTableColumn(table1, 9);
         hideTableColumn(billingMyBillsTable, 8);
         hideTableColumn(billingTransacRecordTable, 6);
 
@@ -90,7 +90,7 @@ public class Services {
         appointmentSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
             @Override
             public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
-                return clientFilter.equalsIgnoreCase(entry.getStringValue(8));
+                return clientFilter.equalsIgnoreCase(entry.getStringValue(9));
             }
         });
         table1.setRowSorter(appointmentSorter);
@@ -226,7 +226,8 @@ public class Services {
 
                 appointmentModel.addRow(new Object[]{
                         appointmentID, currentClientName, appointment.getServiceName(), appointment.getVehicleInfo(),
-                        appointment.getServiceDetail(), schedule, "Pending", String.format("₱%.2f", estimate), currentClientUsername
+                        appointment.getServiceDetail(), schedule, appointment.getDefaultAppointmentStatus(),
+                        appointment.getDefaultServiceStatus(), String.format("₱%.2f", estimate), currentClientUsername
                 });
 
                 int billID = sharedData.nextBillID();
@@ -374,23 +375,35 @@ public class Services {
                     return;
                 }
 
+                String serviceStatus = "Not Applicable";
+
                 if (billType.equals("Service")) {
                     Integer appointmentID = sharedData.getAppointmentIDForBill(Integer.parseInt(billNumber));
-                    String currentStatus = appointmentID == null ? null : sharedData.getAppointmentStatus(appointmentID);
 
-                    if (currentStatus == null) {
+                    if (appointmentID == null) {
                         JOptionPane.showMessageDialog(servicesPanel, "The appointment record could not be found.");
                         return;
                     }
 
-                    approvalStatus = currentStatus;
+                    String currentAppointmentStatus = sharedData.getAppointmentStatus(appointmentID);
+                    String currentServiceStatus = sharedData.getServiceStatus(appointmentID);
+
+                    if (currentAppointmentStatus == null || currentServiceStatus == null) {
+                        JOptionPane.showMessageDialog(servicesPanel, "The appointment record could not be found.");
+                        return;
+                    }
+
+                    approvalStatus = currentAppointmentStatus;
+                    serviceStatus = currentServiceStatus;
                     billModel.setValueAt(approvalStatus, selectedRow, 5);
 
-                    if (!approvalStatus.equals("Approved")) {
+                    String paymentBlockReason = sharedData.getPaymentBlockReason(Integer.parseInt(billNumber));
+
+                    if (paymentBlockReason != null) {
                         JOptionPane.showMessageDialog(
                                 servicesPanel,
-                                "Payment is not available yet.\n\nYour service appointment must be approved by the admin first.\nCurrent Approval Status: " + approvalStatus,
-                                "Admin Approval Required",
+                                "Payment is not available yet.\n\n" + paymentBlockReason,
+                                "Payment Not Available",
                                 JOptionPane.WARNING_MESSAGE
                         );
                         return;
@@ -482,6 +495,7 @@ public class Services {
                                     + "\nBill Type: " + billType
                                     + "\nDescription: " + description
                                     + "\nApproval Status: " + approvalStatus
+                                    + "\nService Status: " + serviceStatus
                                     + "\nPayment Status: Paid"
                                     + "\nAmount Paid: " + amount
                                     + "\nPayment Method: " + selectedMethod

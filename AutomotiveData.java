@@ -30,6 +30,7 @@ public class AutomotiveData {
         appointmentModel.addColumn("Details");
         appointmentModel.addColumn("Schedule");
         appointmentModel.addColumn("Status");
+        appointmentModel.addColumn("Service Status");
         appointmentModel.addColumn("Estimate");
         appointmentModel.addColumn("Client Username");
 
@@ -204,6 +205,33 @@ public class AutomotiveData {
         return null;
     }
 
+    // GET SERVICE STATUS
+
+    public String getServiceStatus(int appointmentID) {
+        for (int i = 0; i < appointmentModel.getRowCount(); i++) {
+
+            int currentID = Integer.parseInt(
+                    appointmentModel.getValueAt(i, 0).toString()
+            );
+
+            if (currentID == appointmentID) {
+                return appointmentModel.getValueAt(i, 7).toString();
+            }
+        }
+
+        return null;
+    }
+
+    public String getServiceStatusForBill(int billID) {
+        Integer appointmentID = serviceBillAppointmentIDs.get(billID);
+
+        if (appointmentID == null) {
+            return null;
+        }
+
+        return getServiceStatus(appointmentID);
+    }
+
     // UPDATE APPOINTMENT AND RELATED BILL STATUS
 
     public boolean updateAppointmentStatus(int appointmentID, String status) {
@@ -217,6 +245,19 @@ public class AutomotiveData {
 
             if (currentID == appointmentID) {
                 appointmentModel.setValueAt(status, i, 6);
+
+                // A cancelled appointment cannot continue as active work.
+                // A completed service keeps its completion record for history.
+                if ("Cancelled".equals(status)) {
+                    String serviceStatus = String.valueOf(
+                            appointmentModel.getValueAt(i, 7)
+                    );
+
+                    if (!"Completed".equals(serviceStatus)) {
+                        appointmentModel.setValueAt("Cancelled", i, 7);
+                    }
+                }
+
                 found = true;
                 break;
             }
@@ -224,29 +265,141 @@ public class AutomotiveData {
 
         // Update the approval status of the associated service bill.
         if (found) {
-            for (int i = 0; i < billModel.getRowCount(); i++) {
-
-                if ("Service".equals(
-                        billModel.getValueAt(i, 2).toString()
-                )) {
-
-                    int billID = Integer.parseInt(
-                            billModel.getValueAt(i, 0).toString()
-                    );
-
-                    Integer linkedAppointmentID =
-                            serviceBillAppointmentIDs.get(billID);
-
-                    if (linkedAppointmentID != null
-                            && linkedAppointmentID == appointmentID) {
-
-                        billModel.setValueAt(status, i, 5);
-                    }
-                }
-            }
+            updateLinkedBillApproval(appointmentID, status);
         }
 
         return found;
+    }
+
+    // UPDATE ONLY THE SERVICE STATUS (NEVER TOUCH THE APPOINTMENT STATUS)
+
+    public boolean updateServiceStatus(int appointmentID, String serviceStatus) {
+        for (int i = 0; i < appointmentModel.getRowCount(); i++) {
+
+            int currentID = Integer.parseInt(
+                    appointmentModel.getValueAt(i, 0).toString()
+            );
+
+            if (currentID == appointmentID) {
+                String appointmentStatus = String.valueOf(
+                        appointmentModel.getValueAt(i, 6)
+                );
+                String existingServiceStatus = String.valueOf(
+                        appointmentModel.getValueAt(i, 7)
+                );
+
+                // Cancelled work must stay cancelled.
+                if ("Cancelled".equals(existingServiceStatus)) {
+                    return false;
+                }
+
+                // Cancelled appointments must not progress to completed work.
+                if ("Cancelled".equals(appointmentStatus)) {
+                    return false;
+                }
+
+                // Work cannot start or finish before the appointment is approved.
+                if (!"Approved".equals(appointmentStatus)
+                        && ("In Progress".equals(serviceStatus)
+                        || "Completed".equals(serviceStatus))) {
+                    return false;
+                }
+
+                appointmentModel.setValueAt(serviceStatus, i, 7);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // CANCEL A SERVICE WHILE KEEPING THE RECORD FOR HISTORY
+
+    public boolean cancelService(int appointmentID) {
+        for (int i = 0; i < appointmentModel.getRowCount(); i++) {
+
+            int currentID = Integer.parseInt(
+                    appointmentModel.getValueAt(i, 0).toString()
+            );
+
+            if (currentID == appointmentID) {
+                String serviceStatus = String.valueOf(
+                        appointmentModel.getValueAt(i, 7)
+                );
+
+                if ("Completed".equals(serviceStatus)
+                        || "Cancelled".equals(serviceStatus)) {
+                    return false;
+                }
+
+                appointmentModel.setValueAt("Cancelled", i, 7);
+                appointmentModel.setValueAt("Cancelled", i, 6);
+
+                updateLinkedBillApproval(appointmentID, "Cancelled");
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // PAYMENT RULES FOR SERVICE BILLS
+
+    public boolean isServiceBillPayable(int billID) {
+        return getPaymentBlockReason(billID) == null;
+    }
+
+    public String getPaymentBlockReason(int billID) {
+        Integer appointmentID = serviceBillAppointmentIDs.get(billID);
+
+        if (appointmentID == null) {
+            return "The linked appointment record could not be found.";
+        }
+
+        String appointmentStatus = getAppointmentStatus(appointmentID);
+        String serviceStatus = getServiceStatus(appointmentID);
+
+        if (appointmentStatus == null || serviceStatus == null) {
+            return "The linked appointment record could not be found.";
+        }
+
+        if (!"Approved".equals(appointmentStatus)) {
+            return "Your service appointment must be approved by the admin first."
+                    + "\nCurrent Appointment Status: " + appointmentStatus;
+        }
+
+        if (!"Completed".equals(serviceStatus)) {
+            return "The service work must be completed before this bill can be paid."
+                    + "\nCurrent Service Status: " + serviceStatus;
+        }
+
+        return null;
+    }
+
+    // UPDATE THE APPROVAL COLUMN OF THE SERVICE BILL LINKED TO AN APPOINTMENT
+
+    private void updateLinkedBillApproval(int appointmentID, String status) {
+        for (int i = 0; i < billModel.getRowCount(); i++) {
+
+            if ("Service".equals(
+                    billModel.getValueAt(i, 2).toString()
+            )) {
+
+                int billID = Integer.parseInt(
+                        billModel.getValueAt(i, 0).toString()
+                );
+
+                Integer linkedAppointmentID =
+                        serviceBillAppointmentIDs.get(billID);
+
+                if (linkedAppointmentID != null
+                        && linkedAppointmentID.intValue() == appointmentID) {
+
+                    billModel.setValueAt(status, i, 5);
+                }
+            }
+        }
     }
 
     // NORMALIZE USERNAME TO KEEP ACCOUNT IDENTIFICATION CONSISTENT

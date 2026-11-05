@@ -46,5 +46,14 @@ public class AppointmentDetails {
     public String getServiceName() {
         return service.getServiceName();
     }
+
+    // Every new appointment starts with these two separate statuses.
+    public String getDefaultAppointmentStatus() {
+        return "Pending";
+    }
+
+    public String getDefaultServiceStatus() {
+        return "Not Started";
+    }
 }
 

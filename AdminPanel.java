@@ -1,5 +1,6 @@
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import javax.swing.event.ListSelectionEvent;
@@ -34,6 +35,11 @@ public class AdminPanel {
     private JButton maskAsCompletedButton;
     private JButton cancelServiceButton;
     private JTable adminServiceManagementTabel;
+    private JTable tblApproveAppointments;
+    private JButton btnApproveAppointment;
+    private JButton btnCancelPendingAppointment;
+    private JComboBox<String> cmbServiceStatus;
+    private JButton btnUpdateWorkStatus;
 
     private DefaultTableModel clientAppointmentListTable;
     private DefaultTableModel productMasterlistTable;
@@ -58,10 +64,26 @@ public class AdminPanel {
         billingRecordsTable = sharedData.getBillModel();
 
         tblClientAppointmentMastList.setModel(clientAppointmentListTable);
+        tblApproveAppointments.setModel(clientAppointmentListTable);
+        adminServiceManagementTabel.setModel(clientAppointmentListTable);
         tblProdMasterList.setModel(productMasterlistTable);
         tblTransactionRecords.setModel(transactionRecordsTable);
         tblAdminBillHistory.setModel(billingRecordsTable);
-        hideTableColumn(tblClientAppointmentMastList, 8);
+
+        // The approval tab only shows appointments that are still pending.
+        TableRowSorter<DefaultTableModel> pendingAppointmentSorter =
+                new TableRowSorter<>(clientAppointmentListTable);
+        pendingAppointmentSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
+            @Override
+            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+                return "Pending".equalsIgnoreCase(entry.getStringValue(6));
+            }
+        });
+        tblApproveAppointments.setRowSorter(pendingAppointmentSorter);
+
+        hideTableColumn(tblClientAppointmentMastList, 9);
+        hideTableColumn(tblApproveAppointments, 9);
+        hideTableColumn(adminServiceManagementTabel, 9);
         hideTableColumn(tblAdminBillHistory, 8);
         hideTableColumn(tblTransactionRecords, 6);
 
@@ -94,9 +116,21 @@ public class AdminPanel {
 
                 selectedRow = tblClientAppointmentMastList.convertRowIndexToModel(selectedRow);
                 int appointmentID = Integer.parseInt(clientAppointmentListTable.getValueAt(selectedRow, 0).toString());
+                String appointmentStatus = sharedData.getAppointmentStatus(appointmentID);
+                String serviceStatus = sharedData.getServiceStatus(appointmentID);
+
+                if ("Cancelled".equals(appointmentStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "Cancelled appointments cannot be approved.", "Cancelled Appointment", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if ("Cancelled".equals(serviceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "This appointment's service was cancelled and cannot be approved.", "Cancelled Service", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
 
                 if (sharedData.updateAppointmentStatus(appointmentID, "Approved")) {
-                    JOptionPane.showMessageDialog(adminPanel, "Appointment approved. The client can now pay the service bill.");
+                    JOptionPane.showMessageDialog(adminPanel, "Appointment approved. The client can now pay the service bill once the work is completed.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -115,9 +149,69 @@ public class AdminPanel {
 
                 selectedRow = tblClientAppointmentMastList.convertRowIndexToModel(selectedRow);
                 int appointmentID = Integer.parseInt(clientAppointmentListTable.getValueAt(selectedRow, 0).toString());
+                String currentStatus = sharedData.getAppointmentStatus(appointmentID);
+
+                if ("Cancelled".equals(currentStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "This appointment is already cancelled.", "Already Cancelled", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
 
                 if (sharedData.updateAppointmentStatus(appointmentID, "Cancelled")) {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment cancelled. The client cannot pay this service bill.");
+                } else {
+                    JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        btnApproveAppointment.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int selectedRow = tblApproveAppointments.getSelectedRow();
+
+                if (selectedRow == -1) {
+                    JOptionPane.showMessageDialog(adminPanel, "Please select a pending appointment to approve.", "No Appointment Selected", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                selectedRow = tblApproveAppointments.convertRowIndexToModel(selectedRow);
+                int appointmentID = Integer.parseInt(clientAppointmentListTable.getValueAt(selectedRow, 0).toString());
+                String appointmentStatus = sharedData.getAppointmentStatus(appointmentID);
+                String serviceStatus = sharedData.getServiceStatus(appointmentID);
+
+                if (!"Pending".equalsIgnoreCase(appointmentStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "Only pending appointments can be approved.", "Not Pending", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if ("Cancelled".equals(serviceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "This appointment's service was cancelled and cannot be approved.", "Cancelled Service", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (sharedData.updateAppointmentStatus(appointmentID, "Approved")) {
+                    JOptionPane.showMessageDialog(adminPanel, "Appointment #" + appointmentID + " approved. The client can now see the approval.");
+                } else {
+                    JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        btnCancelPendingAppointment.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int selectedRow = tblApproveAppointments.getSelectedRow();
+
+                if (selectedRow == -1) {
+                    JOptionPane.showMessageDialog(adminPanel, "Please select a pending appointment to cancel.", "No Appointment Selected", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                selectedRow = tblApproveAppointments.convertRowIndexToModel(selectedRow);
+                int appointmentID = Integer.parseInt(clientAppointmentListTable.getValueAt(selectedRow, 0).toString());
+
+                if (sharedData.updateAppointmentStatus(appointmentID, "Cancelled")) {
+                    JOptionPane.showMessageDialog(adminPanel, "Appointment #" + appointmentID + " cancelled. The client cannot pay this service bill.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -145,8 +239,9 @@ public class AdminPanel {
                                 + "\nVehicle: " + clientAppointmentListTable.getValueAt(selectedRow, 3)
                                 + "\nDetails: " + clientAppointmentListTable.getValueAt(selectedRow, 4)
                                 + "\nSchedule: " + clientAppointmentListTable.getValueAt(selectedRow, 5)
-                                + "\nStatus: " + clientAppointmentListTable.getValueAt(selectedRow, 6)
-                                + "\nEstimate: " + clientAppointmentListTable.getValueAt(selectedRow, 7),
+                                + "\nAppointment Status: " + clientAppointmentListTable.getValueAt(selectedRow, 6)
+                                + "\nService Status: " + clientAppointmentListTable.getValueAt(selectedRow, 7)
+                                + "\nEstimate: " + clientAppointmentListTable.getValueAt(selectedRow, 8),
                         "Inspect Estimate",
                         JOptionPane.INFORMATION_MESSAGE
                 );
@@ -321,6 +416,197 @@ public class AdminPanel {
                 tblProdMasterList.clearSelection();
             }
         });
+
+        // Selecting a service row loads its current service status into the combo box.
+        adminServiceManagementTabel.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (e.getValueIsAdjusting()) return;
+
+                int selectedRow = adminServiceManagementTabel.getSelectedRow();
+                if (selectedRow == -1) return;
+
+                selectedRow = adminServiceManagementTabel.convertRowIndexToModel(selectedRow);
+                String serviceStatus = String.valueOf(clientAppointmentListTable.getValueAt(selectedRow, 7));
+
+                if ("Not Started".equals(serviceStatus)
+                        || "In Progress".equals(serviceStatus)
+                        || "Completed".equals(serviceStatus)) {
+                    cmbServiceStatus.setSelectedItem(serviceStatus);
+                }
+            }
+        });
+
+        startServiceButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int appointmentID = getSelectedAppointmentID(adminServiceManagementTabel);
+
+                if (appointmentID == -1) {
+                    JOptionPane.showMessageDialog(adminPanel, "Please select an appointment or service first.", "No Service Selected", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                String appointmentStatus = sharedData.getAppointmentStatus(appointmentID);
+                String serviceStatus = sharedData.getServiceStatus(appointmentID);
+
+                if ("Cancelled".equals(appointmentStatus) || "Cancelled".equals(serviceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "Cancelled appointments or services cannot be started.", "Cancelled Service", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (!"Approved".equals(appointmentStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "The appointment must be approved before the service can start.\nCurrent Appointment Status: " + appointmentStatus, "Approval Required", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if ("Completed".equals(serviceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "This service is already completed.", "Service Completed", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+
+                if ("In Progress".equals(serviceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "This service is already in progress.", "Service In Progress", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+
+                if (sharedData.updateServiceStatus(appointmentID, "In Progress")) {
+                    JOptionPane.showMessageDialog(adminPanel, "Service started. The client can see that the work is now In Progress.");
+                } else {
+                    JOptionPane.showMessageDialog(adminPanel, "The service status could not be updated.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        maskAsCompletedButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int appointmentID = getSelectedAppointmentID(adminServiceManagementTabel);
+
+                if (appointmentID == -1) {
+                    JOptionPane.showMessageDialog(adminPanel, "Please select an appointment or service first.", "No Service Selected", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                String appointmentStatus = sharedData.getAppointmentStatus(appointmentID);
+                String serviceStatus = sharedData.getServiceStatus(appointmentID);
+
+                if ("Cancelled".equals(appointmentStatus) || "Cancelled".equals(serviceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "Cancelled appointments or services cannot be completed.", "Cancelled Service", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (!"Approved".equals(appointmentStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "The appointment must be approved before the service can be completed.\nCurrent Appointment Status: " + appointmentStatus, "Approval Required", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if ("Completed".equals(serviceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "This service is already completed.", "Service Completed", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+
+                if (!"In Progress".equals(serviceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "Start the service first, or use Update Work Status to set it to Completed.", "Service Not Started", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (sharedData.updateServiceStatus(appointmentID, "Completed")) {
+                    JOptionPane.showMessageDialog(adminPanel, "Service marked as completed. The client can now pay the service bill.");
+                } else {
+                    JOptionPane.showMessageDialog(adminPanel, "The service status could not be updated.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        cancelServiceButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int appointmentID = getSelectedAppointmentID(adminServiceManagementTabel);
+
+                if (appointmentID == -1) {
+                    JOptionPane.showMessageDialog(adminPanel, "Please select an appointment or service first.", "No Service Selected", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                String serviceStatus = sharedData.getServiceStatus(appointmentID);
+
+                if ("Cancelled".equals(serviceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "This service is already cancelled.", "Already Cancelled", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+
+                if ("Completed".equals(serviceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "A completed service cannot be cancelled.", "Service Completed", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (sharedData.cancelService(appointmentID)) {
+                    JOptionPane.showMessageDialog(adminPanel, "Service cancelled. The record is kept for history and its bill can no longer be paid.");
+                } else {
+                    JOptionPane.showMessageDialog(adminPanel, "The service could not be cancelled.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        btnUpdateWorkStatus.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int appointmentID = getSelectedAppointmentID(adminServiceManagementTabel);
+
+                if (appointmentID == -1) {
+                    JOptionPane.showMessageDialog(adminPanel, "Please select an appointment or service first.", "No Service Selected", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                Object selectedStatusObject = cmbServiceStatus.getSelectedItem();
+
+                if (selectedStatusObject == null) {
+                    JOptionPane.showMessageDialog(adminPanel, "Please select a service status.", "No Status Selected", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                String selectedStatus = selectedStatusObject.toString();
+                String appointmentStatus = sharedData.getAppointmentStatus(appointmentID);
+                String currentServiceStatus = sharedData.getServiceStatus(appointmentID);
+
+                if ("Cancelled".equals(appointmentStatus) || "Cancelled".equals(currentServiceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "Cancelled appointments or services cannot be updated.", "Cancelled Service", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (("In Progress".equals(selectedStatus) || "Completed".equals(selectedStatus))
+                        && !"Approved".equals(appointmentStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "The appointment must be approved before the work can start or finish.\nCurrent Appointment Status: " + appointmentStatus, "Approval Required", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (selectedStatus.equals(currentServiceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "The service is already marked as " + selectedStatus + ".", "No Change", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+
+                if (sharedData.updateServiceStatus(appointmentID, selectedStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "Service status updated to " + selectedStatus + ".\nThe client can see this change immediately.");
+                } else {
+                    JOptionPane.showMessageDialog(adminPanel, "The service status could not be updated.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+    }
+
+    private int getSelectedAppointmentID(JTable table) {
+        int selectedRow = table.getSelectedRow();
+
+        if (selectedRow == -1) {
+            return -1;
+        }
+
+        selectedRow = table.convertRowIndexToModel(selectedRow);
+
+        return Integer.parseInt(
+                clientAppointmentListTable.getValueAt(selectedRow, 0).toString()
+        );
     }
 
     private void hideTableColumn(JTable table, int modelColumn) {
