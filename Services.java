@@ -7,6 +7,13 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 
+/**
+ * Client screen.
+ *
+ * All appointment, product, bill and transaction data comes from the shared
+ * AutomotiveData instance. The current username is used to filter the client's
+ * own appointments, bills and transactions and to select their own cart.
+ */
 public class Services {
     private DefaultTableModel appointmentModel;
     private DefaultTableModel productModel;
@@ -53,6 +60,8 @@ public class Services {
         this(sharedData, null);
     }
 
+    // Binds this screen to the application-wide data store. The username is
+    // the client's unique identity; display names are never used as keys.
     public Services(AutomotiveData sharedData, String clientUsername) {
         if (sharedData == null) {
             throw new IllegalArgumentException("AutomotiveData is required.");
@@ -71,6 +80,7 @@ public class Services {
             currentClientName = currentClientUsername;
         }
 
+        // These are references to the central models, not separate copies.
         appointmentModel = sharedData.getAppointmentModel();
         productModel = sharedData.getProductModel();
         cartModel = sharedData.getCartModel(currentClientUsername);
@@ -86,6 +96,8 @@ public class Services {
         hideTableColumn(billingMyBillsTable, 8);
         hideTableColumn(billingTransacRecordTable, 6);
 
+        // Match only records whose hidden username column belongs to this
+        // client. This prevents one client from seeing another client's data.
         final String clientFilter = currentClientUsername;
         TableRowSorter<DefaultTableModel> appointmentSorter = new TableRowSorter<>(appointmentModel);
         appointmentSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
@@ -192,6 +204,8 @@ public class Services {
             }
         }
 
+        // Creates the appointment and its service bill together through the
+        // centralized data class behind one duplicate-click guard.
         appointmentSubmitAppBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -224,11 +238,14 @@ public class Services {
                 String date = new SimpleDateFormat("dd/MM/yyyy").format((Date) appointmentDateSPN.getValue());
                 String schedule = date + " " + time;
 
+                // A repeated click for the same pending request is rejected.
                 if (sharedData.hasDuplicatePendingAppointment(currentClientUsername, serviceName, vehicle, problem, schedule)) {
                     JOptionPane.showMessageDialog(servicesPanel, "This appointment request was already submitted.", "Duplicate Appointment", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
+                // AutomotiveData generates the IDs, inserts both records and
+                // links the new service bill to this appointment.
                 int appointmentID = sharedData.createAppointment(
                         currentClientUsername,
                         currentClientName,
@@ -249,6 +266,8 @@ public class Services {
             }
         });
 
+        // Cart operations are performed by AutomotiveData so each client's
+        // cart, stock changes and totals stay consistent.
         productAddToCartBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -276,6 +295,7 @@ public class Services {
             }
         });
 
+        // Removing an item restores its quantity to the shared product stock.
         productRemoveBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -296,6 +316,8 @@ public class Services {
             }
         });
 
+        // Converts the selected client's cart into one product bill. Product
+        // bills do not need appointment approval.
         productConfirmProdOrderBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -323,6 +345,8 @@ public class Services {
             }
         });
 
+        // Payment review uses the central validation method. The same rules are
+        // checked again inside payBill before any record is changed.
         billingReviewBillBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -353,6 +377,8 @@ public class Services {
                     return;
                 }
 
+                // Returns null for a payable bill. Service bills require an
+                // approved appointment and completed work; product bills do not.
                 String paymentBlockReason = sharedData.getPaymentBlockReason(billNumber, currentClientUsername);
 
                 if (paymentBlockReason != null) {
@@ -443,6 +469,8 @@ public class Services {
 
                     billingPaymentMethodCMB.setSelectedItem(selectedMethod);
 
+                    // AutomotiveData marks the bill paid and creates the
+                    // transaction/receipt row in one validated operation.
                     int receiptID = sharedData.payBill(billNumber, currentClientUsername, selectedMethod);
 
                     if (receiptID <= 0) {
@@ -531,6 +559,7 @@ public class Services {
             }
         });
 
+        // Logging out keeps the shared data alive for the next login.
         billingLogOutBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -558,6 +587,8 @@ public class Services {
         return servicesPanel;
     }
 
+    // Hides the ownership username column while keeping it in the model for
+    // filtering and record matching.
     private void hideTableColumn(JTable table, int modelColumn) {
         int viewColumn = table.convertColumnIndexToView(modelColumn);
         if (viewColumn >= 0) {

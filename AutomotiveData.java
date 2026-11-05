@@ -99,6 +99,8 @@ public class AutomotiveData {
         adminAccountModel.addColumn("Password");
     }
 
+    // Admin accounts remain part of the shared store so the login screen does
+    // not need its own credential table.
     private void seedAdminAccounts() {
         adminAccountModel.addRow(new Object[]{"admin", "admin123"});
         adminAccountModel.addRow(new Object[]{"Jervey", "bossRica"});
@@ -141,6 +143,7 @@ public class AutomotiveData {
         return customerID;
     }
 
+    // A registration cannot reuse any existing admin or client username.
     public boolean isUsernameTaken(String username) {
         return isAdminUsername(username) || isClientUsername(username);
     }
@@ -163,6 +166,7 @@ public class AutomotiveData {
         return getClientRow(username) != -1;
     }
 
+    // Usernames are case-insensitive; passwords remain case-sensitive.
     public boolean validateClient(String username, String password) {
         String user = username == null ? "" : username.trim();
         String pass = password == null ? "" : password;
@@ -183,6 +187,7 @@ public class AutomotiveData {
         return false;
     }
 
+    // Admin validation uses the same central account table as client login.
     public boolean validateAdmin(String username, String password) {
         String user = username == null ? "" : username.trim();
         String pass = password == null ? "" : password;
@@ -203,6 +208,8 @@ public class AutomotiveData {
         return false;
     }
 
+    // Client lookups always use the unique username (or customer ID), never a
+    // display name that could be shared by two people.
     public String getClientName(String username) {
         int row = getClientRow(username);
         return row == -1
@@ -217,6 +224,7 @@ public class AutomotiveData {
                 : String.valueOf(clientAccountModel.getValueAt(row, 3));
     }
 
+    // Supports retrieving the account identity from its unique customer ID.
     public String getUsernameByCustomerID(String customerID) {
         String id = customerID == null ? "" : customerID.trim();
 
@@ -243,14 +251,17 @@ public class AutomotiveData {
         return -1;
     }
 
+    // Read-only model access for screens that display client accounts.
     public DefaultTableModel getClientAccountModel() {
         return clientAccountModel;
     }
 
+    // Read-only model access for screens that display admin accounts.
     public DefaultTableModel getAdminAccountModel() {
         return adminAccountModel;
     }
 
+    // Compatibility accessor for code that expects the registered client rows.
     public Vector<Vector> getRegisteredClients() {
         return clientAccountModel.getDataVector();
     }
@@ -648,6 +659,7 @@ public class AutomotiveData {
         return productID;
     }
 
+    // Updates the record identified by productID. The ID itself never changes.
     public boolean updateProduct(int productID,
                                  String name,
                                  String category,
@@ -697,6 +709,7 @@ public class AutomotiveData {
         return true;
     }
 
+    // Duplicate names are rejected case-insensitively.
     public boolean hasProductNamed(String name) {
         String productName = name == null ? "" : name.trim();
 
@@ -730,6 +743,7 @@ public class AutomotiveData {
         return false;
     }
 
+    // Returns the model row for a product ID, or -1 when it no longer exists.
     public int getProductRow(int productID) {
         return findRowByID(productModel, productID, 0);
     }
@@ -741,6 +755,8 @@ public class AutomotiveData {
                 : Integer.parseInt(String.valueOf(productModel.getValueAt(row, 4)));
     }
 
+    // Stock updates are kept here so client carts and the admin table share one
+    // inventory value.
     public boolean updateProductStock(int productID, int newStock) {
         int row = getProductRow(productID);
 
@@ -752,6 +768,7 @@ public class AutomotiveData {
         return true;
     }
 
+    // The Admin and Client product tables both bind to this one model.
     public DefaultTableModel getProductModel() {
         return productModel;
     }
@@ -764,6 +781,8 @@ public class AutomotiveData {
     // D. SHOPPING CART MANAGEMENT
     // =========================================================
 
+    // Each unique username gets its own cart model. The normalized key keeps
+    // "Alice" and "alice" from creating two carts.
     public synchronized DefaultTableModel getCartModel(String clientUsername) {
         String key = normalizeUsername(clientUsername);
         DefaultTableModel model = clientCartModels.get(key);
@@ -847,6 +866,7 @@ public class AutomotiveData {
         return null;
     }
 
+    // Removing a cart item returns its reserved quantity to the shared stock.
     public synchronized boolean removeProductFromCart(String clientUsername,
                                                       int cartRow) {
         DefaultTableModel cartModel = getCartModel(clientUsername);
@@ -875,10 +895,12 @@ public class AutomotiveData {
         return true;
     }
 
+    // Called after a cart has been converted into a product bill.
     public synchronized void clearCart(String clientUsername) {
         getCartModel(clientUsername).setRowCount(0);
     }
 
+    // Calculates the subtotal total from this client's cart only.
     public synchronized double getCartTotal(String clientUsername) {
         DefaultTableModel cartModel = getCartModel(clientUsername);
         double total = 0;
@@ -898,6 +920,7 @@ public class AutomotiveData {
         return getCartModel().getDataVector();
     }
 
+    // Finds an existing cart row so repeated additions merge quantities.
     private int findCartRow(DefaultTableModel cartModel, int productID) {
         for (int row = 0; row < cartModel.getRowCount(); row++) {
             if (String.valueOf(productID).equals(
@@ -988,6 +1011,7 @@ public class AutomotiveData {
         return billID;
     }
 
+    // Bill lookups use the stable bill number as the key.
     public int getBillRow(int billID) {
         return findRowByID(billModel, billID, 0);
     }
@@ -1018,10 +1042,12 @@ public class AutomotiveData {
         return row == -1 ? 0 : parseAmount(billModel.getValueAt(row, 4));
     }
 
+    // Payment status is read from the shared bill row, not a UI flag.
     public boolean isBillPaid(int billID) {
         return BILL_PAID.equals(getBillPaymentStatus(billID));
     }
 
+    // Confirms that the hidden username column matches the logged-in client.
     public boolean isBillOwnedByClient(int billID, String clientUsername) {
         int row = getBillRow(billID);
 
@@ -1034,6 +1060,7 @@ public class AutomotiveData {
         );
     }
 
+    // Convenience wrapper used when only a yes/no answer is needed.
     public boolean isServiceBillPayable(int billID) {
         return getPaymentBlockReason(billID, null) == null;
     }
@@ -1168,6 +1195,8 @@ public class AutomotiveData {
         String clientName = String.valueOf(billModel.getValueAt(row, 1));
         String amount = String.valueOf(billModel.getValueAt(row, 4));
 
+        // Validation has passed: mark the bill paid, allocate a receipt and
+        // write the transaction history row linked by bill number.
         billModel.setValueAt(BILL_PAID, row, 6);
 
         int receiptID = nextReceiptID();
@@ -1185,10 +1214,12 @@ public class AutomotiveData {
         return receiptID;
     }
 
+    // Allows the UI to show the exact reason the last payBill call failed.
     public String getLastPaymentError() {
         return lastPaymentError;
     }
 
+    // Receipt generated by the most recent successful payment.
     public int getLastReceiptID() {
         return lastReceiptID;
     }
@@ -1235,6 +1266,7 @@ public class AutomotiveData {
         return balance;
     }
 
+    // Both Admin and Client billing tables bind to this shared bill model.
     public DefaultTableModel getBillModel() {
         return billModel;
     }
@@ -1243,6 +1275,7 @@ public class AutomotiveData {
         return billModel.getDataVector();
     }
 
+    // Returns only the bills whose hidden username column matches the client.
     public Vector<Vector> getBillRecordsForClient(String clientUsername) {
         Vector<Vector> records = new Vector<>();
         String username = normalizeUsername(clientUsername);
