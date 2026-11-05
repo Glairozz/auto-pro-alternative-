@@ -28,7 +28,7 @@ public class AutomotiveServiceLogin {
                 verifyCred.setAdminUsername(adminUser);
 
                 if(verifyCred.checkAdminCred(verifyCred.getAdminUsername(), verifyCred.getAdminPass()).equals("Valid")){
-                    AdminPanel myForm = new AdminPanel(verifyCred);
+                    AdminPanel myForm = new AdminPanel(verifyCred.getAutomotiveData());
                     JFrame frame = new JFrame("AutoCare - Services");
                     frame.setContentPane(myForm.getAdminPanel());
                     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -54,7 +54,7 @@ public class AutomotiveServiceLogin {
                 verifyCred.setClientPass(clientPass);
 
                 if(verifyCred.checkClientCred(verifyCred.getClientUsername(), verifyCred.getClientPass()).equals("Valid")){
-                    Services myForm = new Services(verifyCred);
+                    Services myForm = new Services(verifyCred.getAutomotiveData(), verifyCred.getClientUsername());
                     JFrame frame = new JFrame("AutoCare - Services");
                     frame.setContentPane(myForm.getServicesPanel());
                     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -102,15 +102,21 @@ public class AutomotiveServiceLogin {
     }
 
     public static void main(String[] args){
-        SwingUtilities.invokeLater(() ->{
-            JFrame frame = new JFrame();
-            AutomotiveServiceLogin myForm = new AutomotiveServiceLogin(new AutomotivePasswords());
-            frame.setContentPane(myForm.mainPanel);
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.pack();
-            frame.setLocationRelativeTo(null);
-            frame.setVisible(true);
-        });
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                // One shared data store for the whole running application.
+                AutomotiveData sharedData = new AutomotiveData();
+                AutomotivePasswords session = new AutomotivePasswords(sharedData);
 
+                JFrame frame = new JFrame();
+                AutomotiveServiceLogin myForm = new AutomotiveServiceLogin(session);
+                frame.setContentPane(myForm.mainPanel);
+                frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                frame.pack();
+                frame.setLocationRelativeTo(null);
+                frame.setVisible(true);
+            }
+        });
     }
 }

@@ -49,11 +49,11 @@ public class AppointmentDetails {
 
     // Every new appointment starts with these two separate statuses.
     public String getDefaultAppointmentStatus() {
-        return "Pending";
+        return AutomotiveData.APPOINTMENT_PENDING;
     }
 
     public String getDefaultServiceStatus() {
-        return "Not Started";
+        return AutomotiveData.SERVICE_NOT_STARTED;
     }
 }
 

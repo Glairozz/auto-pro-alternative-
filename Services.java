@@ -45,27 +45,28 @@ public class Services {
     private JScrollPane productProductTable;
     private JScrollPane productCartTable;
 
-    private AutomotivePasswords sharedCred;
     private AutomotiveData sharedData;
     private String currentClientName;
     private String currentClientUsername;
 
-    public Services() {
-        this(new AutomotivePasswords());
+    public Services(AutomotiveData sharedData) {
+        this(sharedData, null);
     }
 
-    public Services(AutomotivePasswords sharedCred) {
-        this(sharedCred, sharedCred.getAutomotiveData());
-    }
+    public Services(AutomotiveData sharedData, String clientUsername) {
+        if (sharedData == null) {
+            throw new IllegalArgumentException("AutomotiveData is required.");
+        }
 
-    public Services(AutomotivePasswords sharedCred, AutomotiveData sharedData) {
-        this.sharedCred = sharedCred;
         this.sharedData = sharedData;
-        currentClientUsername = sharedCred.getClientUsername();
-        if (currentClientUsername == null || currentClientUsername.trim().isEmpty()) {
+        currentClientUsername = clientUsername == null ? "guest" : clientUsername.trim();
+
+        if (currentClientUsername.isEmpty()) {
             currentClientUsername = "guest";
         }
-        currentClientName = sharedCred.getClientName();
+
+        currentClientName = sharedData.getClientName(currentClientUsername);
+
         if (currentClientName == null || currentClientName.trim().isEmpty()) {
             currentClientName = currentClientUsername;
         }
@@ -121,6 +122,7 @@ public class Services {
         productTotalTXT.setText("₱0.00");
         productTotalTXT.setEditable(false);
         billingOutstandingBalanceTXT.setEditable(false);
+        billingOutstandingBalanceTXT.setText(String.format("₱%.2f", sharedData.getOutstandingBalance(currentClientUsername)));
 
         appointmentTimeSPN.setModel(new AbstractSpinnerModel() {
             private int currentMinutes = (8 * 60) + 30;
@@ -221,36 +223,28 @@ public class Services {
 
                 String date = new SimpleDateFormat("dd/MM/yyyy").format((Date) appointmentDateSPN.getValue());
                 String schedule = date + " " + time;
-                double estimate = appointment.getEstimatedPrice();
-                int appointmentID = sharedData.nextAppointmentID();
 
-                appointmentModel.addRow(new Object[]{
-                        appointmentID, currentClientName, appointment.getServiceName(), appointment.getVehicleInfo(),
-                        appointment.getServiceDetail(), schedule, appointment.getDefaultAppointmentStatus(),
-                        appointment.getDefaultServiceStatus(), String.format("₱%.2f", estimate), currentClientUsername
-                });
-
-                int billID = sharedData.nextBillID();
-                String amount = String.format("₱%.2f", estimate);
-                String billDate = new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date());
-
-                billModel.addRow(new Object[]{
-                        billID, currentClientName, "Service", serviceName + " - " + problem + " (" + vehicle + ")",
-                        amount, "Pending", "Unpaid", billDate, currentClientUsername
-                });
-
-                sharedData.linkServiceBill(billID, appointmentID);
-
-                double balance = 0;
-                for (int i = 0; i < billModel.getRowCount(); i++) {
-                    if (billModel.getValueAt(i, 8).toString().equalsIgnoreCase(currentClientUsername)
-                            && billModel.getValueAt(i, 6).toString().equals("Unpaid")) {
-                        String billAmount = billModel.getValueAt(i, 4).toString().replace("₱", "").replace(",", "");
-                        balance += Double.parseDouble(billAmount);
-                    }
+                if (sharedData.hasDuplicatePendingAppointment(currentClientUsername, serviceName, vehicle, problem, schedule)) {
+                    JOptionPane.showMessageDialog(servicesPanel, "This appointment request was already submitted.", "Duplicate Appointment", JOptionPane.WARNING_MESSAGE);
+                    return;
                 }
 
-                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
+                int appointmentID = sharedData.createAppointment(
+                        currentClientUsername,
+                        currentClientName,
+                        serviceName,
+                        vehicle,
+                        problem,
+                        schedule,
+                        appointment.getEstimatedPrice()
+                );
+
+                if (appointmentID == -1) {
+                    JOptionPane.showMessageDialog(servicesPanel, "The appointment could not be submitted.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", sharedData.getOutstandingBalance(currentClientUsername)));
                 JOptionPane.showMessageDialog(servicesPanel, "Appointment submitted successfully!\nPlease wait for admin approval before payment.");
             }
         });
@@ -266,22 +260,18 @@ public class Services {
 
                 selectedRow = table2.convertRowIndexToModel(selectedRow);
                 int quantity = (Integer) productQuantitySPN.getValue();
-                int stock = Integer.parseInt(productModel.getValueAt(selectedRow, 4).toString());
+                int productID = Integer.parseInt(
+                        productModel.getValueAt(selectedRow, 0).toString()
+                );
 
-                if (quantity > stock) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Not enough stock available.");
+                String error = sharedData.addProductToCart(currentClientUsername, productID, quantity);
+
+                if (error != null) {
+                    JOptionPane.showMessageDialog(servicesPanel, error);
                     return;
                 }
 
-                String id = productModel.getValueAt(selectedRow, 0).toString();
-                String name = productModel.getValueAt(selectedRow, 1).toString();
-                double price = Double.parseDouble(productModel.getValueAt(selectedRow, 3).toString());
-
-                OrderCalculator calculator = new OrderCalculator();
-                calculator.computeOrder(price, quantity);
-                cartModel.addRow(new Object[]{id, name, quantity, String.format("%.2f", calculator.getTotalAmount())});
-                productModel.setValueAt(stock - quantity, selectedRow, 4);
-                productTotalTXT.setText(String.format("₱%.2f", calculator.calculateCartTotal(cartModel)));
+                productTotalTXT.setText(String.format("₱%.2f", sharedData.getCartTotal(currentClientUsername)));
                 productQuantitySPN.setValue(1);
             }
         });
@@ -296,20 +286,13 @@ public class Services {
                 }
 
                 selectedRow = table3.convertRowIndexToModel(selectedRow);
-                String id = cartModel.getValueAt(selectedRow, 0).toString();
-                int quantity = Integer.parseInt(cartModel.getValueAt(selectedRow, 2).toString());
 
-                for (int i = 0; i < productModel.getRowCount(); i++) {
-                    if (productModel.getValueAt(i, 0).toString().equals(id)) {
-                        int stock = Integer.parseInt(productModel.getValueAt(i, 4).toString());
-                        productModel.setValueAt(stock + quantity, i, 4);
-                        break;
-                    }
+                if (!sharedData.removeProductFromCart(currentClientUsername, selectedRow)) {
+                    JOptionPane.showMessageDialog(servicesPanel, "The cart item could not be removed.");
+                    return;
                 }
 
-                cartModel.removeRow(selectedRow);
-                OrderCalculator calculator = new OrderCalculator();
-                productTotalTXT.setText(String.format("₱%.2f", calculator.calculateCartTotal(cartModel)));
+                productTotalTXT.setText(String.format("₱%.2f", sharedData.getCartTotal(currentClientUsername)));
             }
         });
 
@@ -321,28 +304,21 @@ public class Services {
                     return;
                 }
 
-                OrderCalculator calculator = new OrderCalculator();
-                double total = calculator.calculateCartTotal(cartModel);
-                int billID = sharedData.nextBillID();
+                double total = sharedData.getCartTotal(currentClientUsername);
+                int billID = sharedData.createProductBill(
+                        currentClientUsername,
+                        "Product Order",
+                        total
+                );
 
-                billModel.addRow(new Object[]{
-                        billID, currentClientName, "Product", "Product Order", String.format("₱%.2f", total),
-                        "Not Required", "Unpaid", new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date()), currentClientUsername
-                });
-
-                cartModel.setRowCount(0);
-                productTotalTXT.setText("₱0.00");
-
-                double balance = 0;
-                for (int i = 0; i < billModel.getRowCount(); i++) {
-                    if (billModel.getValueAt(i, 8).toString().equalsIgnoreCase(currentClientUsername)
-                            && billModel.getValueAt(i, 6).toString().equals("Unpaid")) {
-                        String amount = billModel.getValueAt(i, 4).toString().replace("₱", "").replace(",", "");
-                        balance += Double.parseDouble(amount);
-                    }
+                if (billID == -1) {
+                    JOptionPane.showMessageDialog(servicesPanel, "The product order could not be created.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
                 }
 
-                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
+                sharedData.clearCart(currentClientUsername);
+                productTotalTXT.setText("₱0.00");
+                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", sharedData.getOutstandingBalance(currentClientUsername)));
                 JOptionPane.showMessageDialog(servicesPanel, "Product order confirmed!\nYou can pay for this product order immediately.");
             }
         });
@@ -357,60 +333,57 @@ public class Services {
                 }
 
                 selectedRow = billingMyBillsTable.convertRowIndexToModel(selectedRow);
-                String billNumber = billModel.getValueAt(selectedRow, 0).toString();
+
+                int billNumber = Integer.parseInt(
+                        billModel.getValueAt(selectedRow, 0).toString()
+                );
+                String billNumberText = String.valueOf(billNumber);
                 String clientName = billModel.getValueAt(selectedRow, 1).toString();
                 String billType = billModel.getValueAt(selectedRow, 2).toString();
                 String description = billModel.getValueAt(selectedRow, 3).toString();
                 String amount = billModel.getValueAt(selectedRow, 4).toString();
-                String approvalStatus = billModel.getValueAt(selectedRow, 5).toString();
-                String paymentStatus = billModel.getValueAt(selectedRow, 6).toString();
 
-                if (!billModel.getValueAt(selectedRow, 8).toString().equalsIgnoreCase(currentClientUsername)) {
+                if (!sharedData.isBillOwnedByClient(billNumber, currentClientUsername)) {
                     JOptionPane.showMessageDialog(servicesPanel, "You can only pay your own bills.");
                     return;
                 }
 
-                if (paymentStatus.equals("Paid")) {
+                if (sharedData.isBillPaid(billNumber)) {
                     JOptionPane.showMessageDialog(servicesPanel, "This bill has already been paid.");
                     return;
                 }
 
+                String paymentBlockReason = sharedData.getPaymentBlockReason(billNumber, currentClientUsername);
+
+                if (paymentBlockReason != null) {
+                    JOptionPane.showMessageDialog(
+                            servicesPanel,
+                            "Payment is not available yet.\n\n" + paymentBlockReason,
+                            "Payment Not Available",
+                            JOptionPane.WARNING_MESSAGE
+                    );
+                    return;
+                }
+
+                String approvalStatus = sharedData.getBillApprovalStatus(billNumber);
                 String serviceStatus = "Not Applicable";
 
-                if (billType.equals("Service")) {
-                    Integer appointmentID = sharedData.getAppointmentIDForBill(Integer.parseInt(billNumber));
+                if ("Service".equals(billType)) {
+                    Integer appointmentID = sharedData.getAppointmentIDForBill(billNumber);
 
                     if (appointmentID == null) {
                         JOptionPane.showMessageDialog(servicesPanel, "The appointment record could not be found.");
                         return;
                     }
 
-                    String currentAppointmentStatus = sharedData.getAppointmentStatus(appointmentID);
                     String currentServiceStatus = sharedData.getServiceStatus(appointmentID);
 
-                    if (currentAppointmentStatus == null || currentServiceStatus == null) {
+                    if (currentServiceStatus == null) {
                         JOptionPane.showMessageDialog(servicesPanel, "The appointment record could not be found.");
                         return;
                     }
 
-                    approvalStatus = currentAppointmentStatus;
                     serviceStatus = currentServiceStatus;
-                    billModel.setValueAt(approvalStatus, selectedRow, 5);
-
-                    String paymentBlockReason = sharedData.getPaymentBlockReason(Integer.parseInt(billNumber));
-
-                    if (paymentBlockReason != null) {
-                        JOptionPane.showMessageDialog(
-                                servicesPanel,
-                                "Payment is not available yet.\n\n" + paymentBlockReason,
-                                "Payment Not Available",
-                                JOptionPane.WARNING_MESSAGE
-                        );
-                        return;
-                    }
-                } else if (!billType.equals("Product")) {
-                    JOptionPane.showMessageDialog(servicesPanel, "This bill type cannot be paid.");
-                    return;
                 }
 
                 JComboBox<String> paymentMethodCMB = new JComboBox<>(new String[]{"Cash", "Debit", "Credit"});
@@ -469,28 +442,27 @@ public class Services {
                     }
 
                     billingPaymentMethodCMB.setSelectedItem(selectedMethod);
-                    billModel.setValueAt("Paid", selectedRow, 6);
 
-                    int receiptID = sharedData.nextReceiptID();
-                    String paymentDate = new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date());
-                    transModel.addRow(new Object[]{receiptID, billNumber, clientName, amount, selectedMethod, paymentDate, currentClientUsername});
+                    int receiptID = sharedData.payBill(billNumber, currentClientUsername, selectedMethod);
 
-                    double balance = 0;
-                    for (int i = 0; i < billModel.getRowCount(); i++) {
-                        if (billModel.getValueAt(i, 8).toString().equalsIgnoreCase(currentClientUsername)
-                            && billModel.getValueAt(i, 6).toString().equals("Unpaid")) {
-                            String unpaidAmount = billModel.getValueAt(i, 4).toString().replace("₱", "").replace(",", "");
-                            balance += Double.parseDouble(unpaidAmount);
-                        }
+                    if (receiptID <= 0) {
+                        String reason = sharedData.getLastPaymentError();
+                        JOptionPane.showMessageDialog(
+                                servicesPanel,
+                                reason == null ? "The payment could not be completed." : reason,
+                                "Payment Failed",
+                                JOptionPane.WARNING_MESSAGE
+                        );
+                        return;
                     }
 
-                    billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
+                    billingOutstandingBalanceTXT.setText(String.format("₱%.2f", sharedData.getOutstandingBalance(currentClientUsername)));
 
                     JOptionPane.showMessageDialog(
                             servicesPanel,
                             "PAYMENT RECEIPT\n\n"
                                     + "Receipt #: " + receiptID
-                                    + "\nBill #: " + billNumber
+                                    + "\nBill #: " + billNumberText
                                     + "\nClient: " + clientName
                                     + "\nBill Type: " + billType
                                     + "\nDescription: " + description
@@ -499,7 +471,7 @@ public class Services {
                                     + "\nPayment Status: Paid"
                                     + "\nAmount Paid: " + amount
                                     + "\nPayment Method: " + selectedMethod
-                                    + "\nPayment Date: " + paymentDate
+                                    + "\nPayment Date: " + new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date())
                                     + "\n\nPayment successful!",
                             "Payment Receipt",
                             JOptionPane.INFORMATION_MESSAGE
@@ -566,7 +538,8 @@ public class Services {
 
                 if (choice == JOptionPane.YES_OPTION) {
                     JFrame servicesFrame = (JFrame) SwingUtilities.getWindowAncestor(servicesPanel);
-                    AutomotiveServiceLogin login = new AutomotiveServiceLogin(sharedCred);
+                    AutomotivePasswords session = new AutomotivePasswords(sharedData);
+                    AutomotiveServiceLogin login = new AutomotiveServiceLogin(session);
                     JFrame loginFrame = new JFrame("AutoCare Pro - Login");
                     loginFrame.setContentPane(login.getMainPanel());
                     loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);

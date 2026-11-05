@@ -36,7 +36,7 @@ public class AutomotiveClientInfo {
                 clientInfo.setClientPass(pass);
                 clientInfo.setClientName(name);
 
-                // Adds exactly one complete account row to clientCredList's Vector.
+                // Registers exactly one account in the shared AutomotiveData store.
                 if (clientInfo.checkClientCred(user, pass, name) != 0) {
                     return;
                 }
