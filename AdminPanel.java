@@ -30,6 +30,10 @@ public class AdminPanel {
     private JButton btnProdUpdate;
     private JButton btnProdDelete;
     private JButton btnProdClear;
+    private JButton startServiceButton;
+    private JButton maskAsCompletedButton;
+    private JButton cancelServiceButton;
+    private JTable adminServiceManagementTabel;
 
     private DefaultTableModel clientAppointmentListTable;
     private DefaultTableModel productMasterlistTable;
