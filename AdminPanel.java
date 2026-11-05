@@ -5,14 +5,6 @@ import java.awt.event.ActionListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
-/**
- * Admin dashboard.
- *
- * Every table is bound directly to a model owned by AutomotiveData, so product,
- * appointment, billing and transaction changes are visible to all screens.
- * Appointments are approved from Manage Appointments; Service Management keeps
- * only Start Service, Mark as Completed and Cancel Service.
- */
 public class AdminPanel {
     private JTabbedPane tabbedPane1;
     private JButton btnLogOut;
@@ -57,29 +49,20 @@ public class AdminPanel {
         return adminPanel;
     }
 
-    // Receives the application-wide AutomotiveData instance. The table fields
-    // below are references to that central store, not copies of the records.
-    public AdminPanel(AutomotiveData sharedData) {
-        if (sharedData == null) {
-            throw new IllegalArgumentException("AutomotiveData is required.");
-        }
-
-        this.sharedData = sharedData;
+    public AdminPanel(AutomotivePasswords clientInfo) {
+        this.sharedData = clientInfo.getAutomotiveData();
 
         clientAppointmentListTable = sharedData.getAppointmentModel();
         productMasterlistTable = sharedData.getProductModel();
         transactionRecordsTable = sharedData.getTransactionModel();
         billingRecordsTable = sharedData.getBillModel();
 
-        // Bind every Admin table to the shared models so updates are visible
-        // immediately in the Client screen as well.
         tblClientAppointmentMastList.setModel(clientAppointmentListTable);
         adminServiceManagementTabel.setModel(clientAppointmentListTable);
         tblProdMasterList.setModel(productMasterlistTable);
         tblTransactionRecords.setModel(transactionRecordsTable);
         tblAdminBillHistory.setModel(billingRecordsTable);
 
-        // The username is used for record ownership and is hidden from the UI.
         hideTableColumn(tblClientAppointmentMastList, 9);
         hideTableColumn(adminServiceManagementTabel, 9);
         hideTableColumn(tblAdminBillHistory, 8);
@@ -102,7 +85,6 @@ public class AdminPanel {
             }
         });
 
-        // Approval is handled here now that the separate approval tab is gone.
         btnConfirmApp.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -118,24 +100,17 @@ public class AdminPanel {
                 String appointmentStatus = sharedData.getAppointmentStatus(appointmentID);
                 String serviceStatus = sharedData.getServiceStatus(appointmentID);
 
-                // Cancelled records stay in history but cannot be reactivated.
-                if (AutomotiveData.APPOINTMENT_CANCELLED.equals(appointmentStatus)) {
+                if ("Cancelled".equals(appointmentStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "Cancelled appointments cannot be approved.", "Cancelled Appointment", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
-                // Only a Pending appointment may move to Approved.
-                if (!AutomotiveData.APPOINTMENT_PENDING.equals(appointmentStatus)) {
-                    JOptionPane.showMessageDialog(adminPanel, "Only pending appointments can be approved.", "Not Pending", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-
-                if (AutomotiveData.SERVICE_CANCELLED.equals(serviceStatus)) {
+                if ("Cancelled".equals(serviceStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "This appointment's service was cancelled and cannot be approved.", "Cancelled Service", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
-                if (sharedData.approveAppointment(appointmentID)) {
+                if (sharedData.updateAppointmentStatus(appointmentID, "Approved")) {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment approved. The client can now pay the service bill once the work is completed.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -143,7 +118,6 @@ public class AdminPanel {
             }
         });
 
-        // Cancelling keeps the appointment and its bill for history.
         btnCancelAppointment.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -158,12 +132,12 @@ public class AdminPanel {
                 int appointmentID = Integer.parseInt(clientAppointmentListTable.getValueAt(selectedRow, 0).toString());
                 String currentStatus = sharedData.getAppointmentStatus(appointmentID);
 
-                if (AutomotiveData.APPOINTMENT_CANCELLED.equals(currentStatus)) {
+                if ("Cancelled".equals(currentStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "This appointment is already cancelled.", "Already Cancelled", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
 
-                if (sharedData.cancelAppointment(appointmentID)) {
+                if (sharedData.updateAppointmentStatus(appointmentID, "Cancelled")) {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment cancelled. The client cannot pay this service bill.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -201,7 +175,6 @@ public class AdminPanel {
             }
         });
 
-        // Re-reads the shared billing models after changes from either screen.
         btnRefreshBillHistory.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -237,14 +210,12 @@ public class AdminPanel {
             }
         });
 
-        // Logging out creates a new session but keeps the same shared data.
         btnLogOut.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    AutomotivePasswords session = new AutomotivePasswords(sharedData);
                     JFrame loginFrame = new JFrame("Login");
-                    AutomotiveServiceLogin loginPanel = new AutomotiveServiceLogin(session);
+                    AutomotiveServiceLogin loginPanel = new AutomotiveServiceLogin(clientInfo);
                     JPanel panel = loginPanel.getMainPanel();
 
                     if (panel == null) {
@@ -268,8 +239,6 @@ public class AdminPanel {
             }
         });
 
-        // Product writes go through AutomotiveData so IDs, duplicate checks and
-        // stock changes are handled in one place.
         btnProdAdd.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -277,13 +246,15 @@ public class AdminPanel {
                     prodName = txtProdName.getText().trim();
                     prodCategory = txtProdCat.getText().trim();
 
-                    if (prodName.isEmpty() || prodCategory.isEmpty()) {
-                        JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
-                        return;
+                    for (int rowSearch = 0; rowSearch < productMasterlistTable.getRowCount(); rowSearch++) {
+                        if (prodName.equalsIgnoreCase(productMasterlistTable.getValueAt(rowSearch, 1).toString())) {
+                            JOptionPane.showMessageDialog(adminPanel, "Product Already Exists!", "ERROR", JOptionPane.WARNING_MESSAGE);
+                            return;
+                        }
                     }
 
-                    if (sharedData.hasProductNamed(prodName)) {
-                        JOptionPane.showMessageDialog(adminPanel, "Product Already Exists!", "ERROR", JOptionPane.WARNING_MESSAGE);
+                    if (prodName.isEmpty() || prodCategory.isEmpty()) {
+                        JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
                         return;
                     }
 
@@ -295,17 +266,15 @@ public class AdminPanel {
                         return;
                     }
 
-                    if (sharedData.addProduct(prodName, prodCategory, prodPrice, prodStock) == -1) {
-                        JOptionPane.showMessageDialog(adminPanel, "Product could not be added.", "ERROR", JOptionPane.WARNING_MESSAGE);
-                    }
+                    int prodID = sharedData.nextProductID();
+                    Object[] prodList = {prodID, prodName, prodCategory, prodPrice, prodStock};
+                    productMasterlistTable.addRow(prodList);
                 } catch (NumberFormatException ex) {
                     JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
                 }
             }
         });
 
-        // Updates are addressed by product ID instead of relying only on the
-        // currently selected row, so the correct record is always changed.
         btnProdUpdate.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -318,10 +287,6 @@ public class AdminPanel {
                     }
 
                     selectedRow = tblProdMasterList.convertRowIndexToModel(selectedRow);
-                    int productID = Integer.parseInt(
-                            productMasterlistTable.getValueAt(selectedRow, 0).toString()
-                    );
-
                     prodName = txtProdName.getText().trim();
                     prodCategory = txtProdCat.getText().trim();
                     prodPrice = Float.parseFloat(txtProdPrice.getText().trim());
@@ -332,22 +297,23 @@ public class AdminPanel {
                         return;
                     }
 
-                    if (sharedData.hasProductNamedExcept(prodName, productID)) {
-                        JOptionPane.showMessageDialog(adminPanel, "Product Already Exists!", "ERROR", JOptionPane.WARNING_MESSAGE);
-                        return;
+                    for (int i = 0; i < productMasterlistTable.getRowCount(); i++) {
+                        if (i != selectedRow && prodName.equalsIgnoreCase(productMasterlistTable.getValueAt(i, 1).toString())) {
+                            JOptionPane.showMessageDialog(adminPanel, "Product Already Exists!", "ERROR", JOptionPane.WARNING_MESSAGE);
+                            return;
+                        }
                     }
 
-                    if (!sharedData.updateProduct(productID, prodName, prodCategory, prodPrice, prodStock)) {
-                        JOptionPane.showMessageDialog(adminPanel, "The product could not be updated.", "ERROR", JOptionPane.WARNING_MESSAGE);
-                    }
+                    productMasterlistTable.setValueAt(prodName, selectedRow, 1);
+                    productMasterlistTable.setValueAt(prodCategory, selectedRow, 2);
+                    productMasterlistTable.setValueAt(prodPrice, selectedRow, 3);
+                    productMasterlistTable.setValueAt(prodStock, selectedRow, 4);
                 } catch (NumberFormatException ex) {
                     JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
                 }
             }
         });
 
-        // Deleting a product also removes it from every client cart, preventing
-        // dangling cart entries without renumbering other products.
         btnProdDelete.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -358,16 +324,8 @@ public class AdminPanel {
                     return;
                 }
 
-                selectedRow = tblProdMasterList.convertRowIndexToModel(selectedRow);
-                int productID = Integer.parseInt(
-                        productMasterlistTable.getValueAt(selectedRow, 0).toString()
-                );
-
-                if (!sharedData.deleteProduct(productID)) {
-                    JOptionPane.showMessageDialog(adminPanel, "The product could not be deleted.", "ERROR", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-
+                int row = tblProdMasterList.convertRowIndexToModel(selectedRow);
+                productMasterlistTable.removeRow(row);
                 txtProdName.setText("");
                 txtProdCat.setText("");
                 txtProdPrice.setText("");
@@ -386,7 +344,6 @@ public class AdminPanel {
             }
         });
 
-        // Service work can start only after the appointment is approved.
         startServiceButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -400,28 +357,27 @@ public class AdminPanel {
                 String appointmentStatus = sharedData.getAppointmentStatus(appointmentID);
                 String serviceStatus = sharedData.getServiceStatus(appointmentID);
 
-                if (AutomotiveData.APPOINTMENT_CANCELLED.equals(appointmentStatus)
-                        || AutomotiveData.SERVICE_CANCELLED.equals(serviceStatus)) {
+                if ("Cancelled".equals(appointmentStatus) || "Cancelled".equals(serviceStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "Cancelled appointments or services cannot be started.", "Cancelled Service", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
-                if (!AutomotiveData.APPOINTMENT_APPROVED.equals(appointmentStatus)) {
+                if (!"Approved".equals(appointmentStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "The appointment must be approved before the service can start.\nCurrent Appointment Status: " + appointmentStatus, "Approval Required", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
-                if (AutomotiveData.SERVICE_COMPLETED.equals(serviceStatus)) {
+                if ("Completed".equals(serviceStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "This service is already completed.", "Service Completed", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
 
-                if (AutomotiveData.SERVICE_IN_PROGRESS.equals(serviceStatus)) {
+                if ("In Progress".equals(serviceStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "This service is already in progress.", "Service In Progress", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
 
-                if (sharedData.updateServiceStatus(appointmentID, AutomotiveData.SERVICE_IN_PROGRESS)) {
+                if (sharedData.updateServiceStatus(appointmentID, "In Progress")) {
                     JOptionPane.showMessageDialog(adminPanel, "Service started. The client can see that the work is now In Progress.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "The service status could not be updated.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -429,7 +385,6 @@ public class AdminPanel {
             }
         });
 
-        // Completion follows the same workflow and unlocks service payment.
         maskAsCompletedButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -443,28 +398,27 @@ public class AdminPanel {
                 String appointmentStatus = sharedData.getAppointmentStatus(appointmentID);
                 String serviceStatus = sharedData.getServiceStatus(appointmentID);
 
-                if (AutomotiveData.APPOINTMENT_CANCELLED.equals(appointmentStatus)
-                        || AutomotiveData.SERVICE_CANCELLED.equals(serviceStatus)) {
+                if ("Cancelled".equals(appointmentStatus) || "Cancelled".equals(serviceStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "Cancelled appointments or services cannot be completed.", "Cancelled Service", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
-                if (!AutomotiveData.APPOINTMENT_APPROVED.equals(appointmentStatus)) {
+                if (!"Approved".equals(appointmentStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "The appointment must be approved before the service can be completed.\nCurrent Appointment Status: " + appointmentStatus, "Approval Required", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
-                if (AutomotiveData.SERVICE_COMPLETED.equals(serviceStatus)) {
+                if ("Completed".equals(serviceStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "This service is already completed.", "Service Completed", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
 
-                if (!AutomotiveData.SERVICE_IN_PROGRESS.equals(serviceStatus)) {
-                    JOptionPane.showMessageDialog(adminPanel, "Start the service first before marking it as completed.", "Service Not Started", JOptionPane.WARNING_MESSAGE);
+                if (!"In Progress".equals(serviceStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "Start the service first.", "Service Not Started", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
-                if (sharedData.updateServiceStatus(appointmentID, AutomotiveData.SERVICE_COMPLETED)) {
+                if (sharedData.updateServiceStatus(appointmentID, "Completed")) {
                     JOptionPane.showMessageDialog(adminPanel, "Service marked as completed. The client can now pay the service bill.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "The service status could not be updated.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -472,7 +426,6 @@ public class AdminPanel {
             }
         });
 
-        // Cancellation is kept as history and makes the linked bill ineligible.
         cancelServiceButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -485,12 +438,12 @@ public class AdminPanel {
 
                 String serviceStatus = sharedData.getServiceStatus(appointmentID);
 
-                if (AutomotiveData.SERVICE_CANCELLED.equals(serviceStatus)) {
+                if ("Cancelled".equals(serviceStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "This service is already cancelled.", "Already Cancelled", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
 
-                if (AutomotiveData.SERVICE_COMPLETED.equals(serviceStatus)) {
+                if ("Completed".equals(serviceStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "A completed service cannot be cancelled.", "Service Completed", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
@@ -502,10 +455,9 @@ public class AdminPanel {
                 }
             }
         });
+
     }
 
-    // Converts the visible (possibly sorted) row into the shared model's
-    // appointment ID.
     private int getSelectedAppointmentID(JTable table) {
         int selectedRow = table.getSelectedRow();
 
@@ -520,7 +472,6 @@ public class AdminPanel {
         );
     }
 
-    // Removes a model column from the visible table without changing the data.
     private void hideTableColumn(JTable table, int modelColumn) {
         int viewColumn = table.convertColumnIndexToView(modelColumn);
         if (viewColumn >= 0) {

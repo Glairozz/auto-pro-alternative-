@@ -7,13 +7,6 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 
-/**
- * Client screen.
- *
- * All appointment, product, bill and transaction data comes from the shared
- * AutomotiveData instance. The current username is used to filter the client's
- * own appointments, bills and transactions and to select their own cart.
- */
 public class Services {
     private DefaultTableModel appointmentModel;
     private DefaultTableModel productModel;
@@ -52,35 +45,31 @@ public class Services {
     private JScrollPane productProductTable;
     private JScrollPane productCartTable;
 
+    private AutomotivePasswords sharedCred;
     private AutomotiveData sharedData;
     private String currentClientName;
     private String currentClientUsername;
 
-    public Services(AutomotiveData sharedData) {
-        this(sharedData, null);
+    public Services() {
+        this(new AutomotivePasswords());
     }
 
-    // Binds this screen to the application-wide data store. The username is
-    // the client's unique identity; display names are never used as keys.
-    public Services(AutomotiveData sharedData, String clientUsername) {
-        if (sharedData == null) {
-            throw new IllegalArgumentException("AutomotiveData is required.");
-        }
+    public Services(AutomotivePasswords sharedCred) {
+        this(sharedCred, sharedCred.getAutomotiveData());
+    }
 
+    public Services(AutomotivePasswords sharedCred, AutomotiveData sharedData) {
+        this.sharedCred = sharedCred;
         this.sharedData = sharedData;
-        currentClientUsername = clientUsername == null ? "guest" : clientUsername.trim();
-
-        if (currentClientUsername.isEmpty()) {
+        currentClientUsername = sharedCred.getClientUsername();
+        if (currentClientUsername == null || currentClientUsername.trim().isEmpty()) {
             currentClientUsername = "guest";
         }
-
-        currentClientName = sharedData.getClientName(currentClientUsername);
-
+        currentClientName = sharedCred.getClientName();
         if (currentClientName == null || currentClientName.trim().isEmpty()) {
             currentClientName = currentClientUsername;
         }
 
-        // These are references to the central models, not separate copies.
         appointmentModel = sharedData.getAppointmentModel();
         productModel = sharedData.getProductModel();
         cartModel = sharedData.getCartModel(currentClientUsername);
@@ -96,8 +85,6 @@ public class Services {
         hideTableColumn(billingMyBillsTable, 8);
         hideTableColumn(billingTransacRecordTable, 6);
 
-        // Match only records whose hidden username column belongs to this
-        // client. This prevents one client from seeing another client's data.
         final String clientFilter = currentClientUsername;
         TableRowSorter<DefaultTableModel> appointmentSorter = new TableRowSorter<>(appointmentModel);
         appointmentSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
@@ -134,7 +121,6 @@ public class Services {
         productTotalTXT.setText("₱0.00");
         productTotalTXT.setEditable(false);
         billingOutstandingBalanceTXT.setEditable(false);
-        billingOutstandingBalanceTXT.setText(String.format("₱%.2f", sharedData.getOutstandingBalance(currentClientUsername)));
 
         appointmentTimeSPN.setModel(new AbstractSpinnerModel() {
             private int currentMinutes = (8 * 60) + 30;
@@ -204,8 +190,6 @@ public class Services {
             }
         }
 
-        // Creates the appointment and its service bill together through the
-        // centralized data class behind one duplicate-click guard.
         appointmentSubmitAppBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -237,37 +221,40 @@ public class Services {
 
                 String date = new SimpleDateFormat("dd/MM/yyyy").format((Date) appointmentDateSPN.getValue());
                 String schedule = date + " " + time;
+                double estimate = appointment.getEstimatedPrice();
+                int appointmentID = sharedData.nextAppointmentID();
 
-                // A repeated click for the same pending request is rejected.
-                if (sharedData.hasDuplicatePendingAppointment(currentClientUsername, serviceName, vehicle, problem, schedule)) {
-                    JOptionPane.showMessageDialog(servicesPanel, "This appointment request was already submitted.", "Duplicate Appointment", JOptionPane.WARNING_MESSAGE);
-                    return;
+                appointmentModel.addRow(new Object[]{
+                        appointmentID, currentClientName, appointment.getServiceName(), appointment.getVehicleInfo(),
+                        appointment.getServiceDetail(), schedule, appointment.getDefaultAppointmentStatus(),
+                        appointment.getDefaultServiceStatus(), String.format("₱%.2f", estimate), currentClientUsername
+                });
+
+                int billID = sharedData.nextBillID();
+                String amount = String.format("₱%.2f", estimate);
+                String billDate = new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date());
+
+                billModel.addRow(new Object[]{
+                        billID, currentClientName, "Service", serviceName + " - " + problem + " (" + vehicle + ")",
+                        amount, "Pending", "Unpaid", billDate, currentClientUsername
+                });
+
+                sharedData.linkServiceBill(billID, appointmentID);
+
+                double balance = 0;
+                for (int i = 0; i < billModel.getRowCount(); i++) {
+                    if (billModel.getValueAt(i, 8).toString().equalsIgnoreCase(currentClientUsername)
+                            && billModel.getValueAt(i, 6).toString().equals("Unpaid")) {
+                        String billAmount = billModel.getValueAt(i, 4).toString().replace("₱", "").replace(",", "");
+                        balance += Double.parseDouble(billAmount);
+                    }
                 }
 
-                // AutomotiveData generates the IDs, inserts both records and
-                // links the new service bill to this appointment.
-                int appointmentID = sharedData.createAppointment(
-                        currentClientUsername,
-                        currentClientName,
-                        serviceName,
-                        vehicle,
-                        problem,
-                        schedule,
-                        appointment.getEstimatedPrice()
-                );
-
-                if (appointmentID == -1) {
-                    JOptionPane.showMessageDialog(servicesPanel, "The appointment could not be submitted.", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", sharedData.getOutstandingBalance(currentClientUsername)));
+                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
                 JOptionPane.showMessageDialog(servicesPanel, "Appointment submitted successfully!\nPlease wait for admin approval before payment.");
             }
         });
 
-        // Cart operations are performed by AutomotiveData so each client's
-        // cart, stock changes and totals stay consistent.
         productAddToCartBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -279,23 +266,26 @@ public class Services {
 
                 selectedRow = table2.convertRowIndexToModel(selectedRow);
                 int quantity = (Integer) productQuantitySPN.getValue();
-                int productID = Integer.parseInt(
-                        productModel.getValueAt(selectedRow, 0).toString()
-                );
+                int stock = Integer.parseInt(productModel.getValueAt(selectedRow, 4).toString());
 
-                String error = sharedData.addProductToCart(currentClientUsername, productID, quantity);
-
-                if (error != null) {
-                    JOptionPane.showMessageDialog(servicesPanel, error);
+                if (quantity > stock) {
+                    JOptionPane.showMessageDialog(servicesPanel, "Not enough stock available.");
                     return;
                 }
 
-                productTotalTXT.setText(String.format("₱%.2f", sharedData.getCartTotal(currentClientUsername)));
+                String id = productModel.getValueAt(selectedRow, 0).toString();
+                String name = productModel.getValueAt(selectedRow, 1).toString();
+                double price = Double.parseDouble(productModel.getValueAt(selectedRow, 3).toString());
+
+                OrderCalculator calculator = new OrderCalculator();
+                calculator.computeOrder(price, quantity);
+                cartModel.addRow(new Object[]{id, name, quantity, String.format("%.2f", calculator.getTotalAmount())});
+                productModel.setValueAt(stock - quantity, selectedRow, 4);
+                productTotalTXT.setText(String.format("₱%.2f", calculator.calculateCartTotal(cartModel)));
                 productQuantitySPN.setValue(1);
             }
         });
 
-        // Removing an item restores its quantity to the shared product stock.
         productRemoveBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -306,18 +296,23 @@ public class Services {
                 }
 
                 selectedRow = table3.convertRowIndexToModel(selectedRow);
+                String id = cartModel.getValueAt(selectedRow, 0).toString();
+                int quantity = Integer.parseInt(cartModel.getValueAt(selectedRow, 2).toString());
 
-                if (!sharedData.removeProductFromCart(currentClientUsername, selectedRow)) {
-                    JOptionPane.showMessageDialog(servicesPanel, "The cart item could not be removed.");
-                    return;
+                for (int i = 0; i < productModel.getRowCount(); i++) {
+                    if (productModel.getValueAt(i, 0).toString().equals(id)) {
+                        int stock = Integer.parseInt(productModel.getValueAt(i, 4).toString());
+                        productModel.setValueAt(stock + quantity, i, 4);
+                        break;
+                    }
                 }
 
-                productTotalTXT.setText(String.format("₱%.2f", sharedData.getCartTotal(currentClientUsername)));
+                cartModel.removeRow(selectedRow);
+                OrderCalculator calculator = new OrderCalculator();
+                productTotalTXT.setText(String.format("₱%.2f", calculator.calculateCartTotal(cartModel)));
             }
         });
 
-        // Converts the selected client's cart into one product bill. Product
-        // bills do not need appointment approval.
         productConfirmProdOrderBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -326,27 +321,32 @@ public class Services {
                     return;
                 }
 
-                double total = sharedData.getCartTotal(currentClientUsername);
-                int billID = sharedData.createProductBill(
-                        currentClientUsername,
-                        "Product Order",
-                        total
-                );
+                OrderCalculator calculator = new OrderCalculator();
+                double total = calculator.calculateCartTotal(cartModel);
+                int billID = sharedData.nextBillID();
 
-                if (billID == -1) {
-                    JOptionPane.showMessageDialog(servicesPanel, "The product order could not be created.", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
+                billModel.addRow(new Object[]{
+                        billID, currentClientName, "Product", "Product Order", String.format("₱%.2f", total),
+                        "Not Required", "Unpaid", new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date()), currentClientUsername
+                });
+
+                cartModel.setRowCount(0);
+                productTotalTXT.setText("₱0.00");
+
+                double balance = 0;
+                for (int i = 0; i < billModel.getRowCount(); i++) {
+                    if (billModel.getValueAt(i, 8).toString().equalsIgnoreCase(currentClientUsername)
+                            && billModel.getValueAt(i, 6).toString().equals("Unpaid")) {
+                        String amount = billModel.getValueAt(i, 4).toString().replace("₱", "").replace(",", "");
+                        balance += Double.parseDouble(amount);
+                    }
                 }
 
-                sharedData.clearCart(currentClientUsername);
-                productTotalTXT.setText("₱0.00");
-                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", sharedData.getOutstandingBalance(currentClientUsername)));
+                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
                 JOptionPane.showMessageDialog(servicesPanel, "Product order confirmed!\nYou can pay for this product order immediately.");
             }
         });
 
-        // Payment review uses the central validation method. The same rules are
-        // checked again inside payBill before any record is changed.
         billingReviewBillBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -357,59 +357,60 @@ public class Services {
                 }
 
                 selectedRow = billingMyBillsTable.convertRowIndexToModel(selectedRow);
-
-                int billNumber = Integer.parseInt(
-                        billModel.getValueAt(selectedRow, 0).toString()
-                );
-                String billNumberText = String.valueOf(billNumber);
+                String billNumber = billModel.getValueAt(selectedRow, 0).toString();
                 String clientName = billModel.getValueAt(selectedRow, 1).toString();
                 String billType = billModel.getValueAt(selectedRow, 2).toString();
                 String description = billModel.getValueAt(selectedRow, 3).toString();
                 String amount = billModel.getValueAt(selectedRow, 4).toString();
+                String approvalStatus = billModel.getValueAt(selectedRow, 5).toString();
+                String paymentStatus = billModel.getValueAt(selectedRow, 6).toString();
 
-                if (!sharedData.isBillOwnedByClient(billNumber, currentClientUsername)) {
+                if (!billModel.getValueAt(selectedRow, 8).toString().equalsIgnoreCase(currentClientUsername)) {
                     JOptionPane.showMessageDialog(servicesPanel, "You can only pay your own bills.");
                     return;
                 }
 
-                if (sharedData.isBillPaid(billNumber)) {
+                if (paymentStatus.equals("Paid")) {
                     JOptionPane.showMessageDialog(servicesPanel, "This bill has already been paid.");
                     return;
                 }
 
-                // Returns null for a payable bill. Service bills require an
-                // approved appointment and completed work; product bills do not.
-                String paymentBlockReason = sharedData.getPaymentBlockReason(billNumber, currentClientUsername);
-
-                if (paymentBlockReason != null) {
-                    JOptionPane.showMessageDialog(
-                            servicesPanel,
-                            "Payment is not available yet.\n\n" + paymentBlockReason,
-                            "Payment Not Available",
-                            JOptionPane.WARNING_MESSAGE
-                    );
-                    return;
-                }
-
-                String approvalStatus = sharedData.getBillApprovalStatus(billNumber);
                 String serviceStatus = "Not Applicable";
 
-                if ("Service".equals(billType)) {
-                    Integer appointmentID = sharedData.getAppointmentIDForBill(billNumber);
+                if (billType.equals("Service")) {
+                    Integer appointmentID = sharedData.getAppointmentIDForBill(Integer.parseInt(billNumber));
 
                     if (appointmentID == null) {
                         JOptionPane.showMessageDialog(servicesPanel, "The appointment record could not be found.");
                         return;
                     }
 
+                    String currentAppointmentStatus = sharedData.getAppointmentStatus(appointmentID);
                     String currentServiceStatus = sharedData.getServiceStatus(appointmentID);
 
-                    if (currentServiceStatus == null) {
+                    if (currentAppointmentStatus == null || currentServiceStatus == null) {
                         JOptionPane.showMessageDialog(servicesPanel, "The appointment record could not be found.");
                         return;
                     }
 
+                    approvalStatus = currentAppointmentStatus;
                     serviceStatus = currentServiceStatus;
+                    billModel.setValueAt(approvalStatus, selectedRow, 5);
+
+                    String paymentBlockReason = sharedData.getPaymentBlockReason(Integer.parseInt(billNumber));
+
+                    if (paymentBlockReason != null) {
+                        JOptionPane.showMessageDialog(
+                                servicesPanel,
+                                "Payment is not available yet.\n\n" + paymentBlockReason,
+                                "Payment Not Available",
+                                JOptionPane.WARNING_MESSAGE
+                        );
+                        return;
+                    }
+                } else if (!billType.equals("Product")) {
+                    JOptionPane.showMessageDialog(servicesPanel, "This bill type cannot be paid.");
+                    return;
                 }
 
                 JComboBox<String> paymentMethodCMB = new JComboBox<>(new String[]{"Cash", "Debit", "Credit"});
@@ -468,29 +469,28 @@ public class Services {
                     }
 
                     billingPaymentMethodCMB.setSelectedItem(selectedMethod);
+                    billModel.setValueAt("Paid", selectedRow, 6);
 
-                    // AutomotiveData marks the bill paid and creates the
-                    // transaction/receipt row in one validated operation.
-                    int receiptID = sharedData.payBill(billNumber, currentClientUsername, selectedMethod);
+                    int receiptID = sharedData.nextReceiptID();
+                    String paymentDate = new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date());
+                    transModel.addRow(new Object[]{receiptID, billNumber, clientName, amount, selectedMethod, paymentDate, currentClientUsername});
 
-                    if (receiptID <= 0) {
-                        String reason = sharedData.getLastPaymentError();
-                        JOptionPane.showMessageDialog(
-                                servicesPanel,
-                                reason == null ? "The payment could not be completed." : reason,
-                                "Payment Failed",
-                                JOptionPane.WARNING_MESSAGE
-                        );
-                        return;
+                    double balance = 0;
+                    for (int i = 0; i < billModel.getRowCount(); i++) {
+                        if (billModel.getValueAt(i, 8).toString().equalsIgnoreCase(currentClientUsername)
+                            && billModel.getValueAt(i, 6).toString().equals("Unpaid")) {
+                            String unpaidAmount = billModel.getValueAt(i, 4).toString().replace("₱", "").replace(",", "");
+                            balance += Double.parseDouble(unpaidAmount);
+                        }
                     }
 
-                    billingOutstandingBalanceTXT.setText(String.format("₱%.2f", sharedData.getOutstandingBalance(currentClientUsername)));
+                    billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
 
                     JOptionPane.showMessageDialog(
                             servicesPanel,
                             "PAYMENT RECEIPT\n\n"
                                     + "Receipt #: " + receiptID
-                                    + "\nBill #: " + billNumberText
+                                    + "\nBill #: " + billNumber
                                     + "\nClient: " + clientName
                                     + "\nBill Type: " + billType
                                     + "\nDescription: " + description
@@ -499,7 +499,7 @@ public class Services {
                                     + "\nPayment Status: Paid"
                                     + "\nAmount Paid: " + amount
                                     + "\nPayment Method: " + selectedMethod
-                                    + "\nPayment Date: " + new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date())
+                                    + "\nPayment Date: " + paymentDate
                                     + "\n\nPayment successful!",
                             "Payment Receipt",
                             JOptionPane.INFORMATION_MESSAGE
@@ -559,7 +559,6 @@ public class Services {
             }
         });
 
-        // Logging out keeps the shared data alive for the next login.
         billingLogOutBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -567,8 +566,7 @@ public class Services {
 
                 if (choice == JOptionPane.YES_OPTION) {
                     JFrame servicesFrame = (JFrame) SwingUtilities.getWindowAncestor(servicesPanel);
-                    AutomotivePasswords session = new AutomotivePasswords(sharedData);
-                    AutomotiveServiceLogin login = new AutomotiveServiceLogin(session);
+                    AutomotiveServiceLogin login = new AutomotiveServiceLogin(sharedCred);
                     JFrame loginFrame = new JFrame("AutoCare Pro - Login");
                     loginFrame.setContentPane(login.getMainPanel());
                     loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -587,8 +585,6 @@ public class Services {
         return servicesPanel;
     }
 
-    // Hides the ownership username column while keeping it in the model for
-    // filtering and record matching.
     private void hideTableColumn(JTable table, int modelColumn) {
         int viewColumn = table.convertColumnIndexToView(modelColumn);
         if (viewColumn >= 0) {

@@ -48,13 +48,12 @@ public class AppointmentDetails {
     }
 
     // Every new appointment starts with these two separate statuses.
-    // The values come from AutomotiveData so every screen uses the same text.
     public String getDefaultAppointmentStatus() {
-        return AutomotiveData.APPOINTMENT_PENDING;
+        return "Pending";
     }
 
     public String getDefaultServiceStatus() {
-        return AutomotiveData.SERVICE_NOT_STARTED;
+        return "Not Started";
     }
 }
 

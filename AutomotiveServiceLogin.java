@@ -2,12 +2,6 @@ import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-/**
- * Login and registration entry point.
- *
- * The session object passed to this screen carries the one shared
- * AutomotiveData instance that is later handed to the Admin and Client panels.
- */
 public class AutomotiveServiceLogin {
     private JTabbedPane tabbedPane1;
     private JTextField txtAdminUser;
@@ -34,8 +28,7 @@ public class AutomotiveServiceLogin {
                 verifyCred.setAdminUsername(adminUser);
 
                 if(verifyCred.checkAdminCred(verifyCred.getAdminUsername(), verifyCred.getAdminPass()).equals("Valid")){
-                    // The Admin panel receives the same shared data instance.
-                    AdminPanel myForm = new AdminPanel(verifyCred.getAutomotiveData());
+                    AdminPanel myForm = new AdminPanel(verifyCred);
                     JFrame frame = new JFrame("AutoCare - Services");
                     frame.setContentPane(myForm.getAdminPanel());
                     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -61,9 +54,7 @@ public class AutomotiveServiceLogin {
                 verifyCred.setClientPass(clientPass);
 
                 if(verifyCred.checkClientCred(verifyCred.getClientUsername(), verifyCred.getClientPass()).equals("Valid")){
-                    // The Client panel receives the same data instance plus the
-                    // username used to filter that client's own records.
-                    Services myForm = new Services(verifyCred.getAutomotiveData(), verifyCred.getClientUsername());
+                    Services myForm = new Services(verifyCred);
                     JFrame frame = new JFrame("AutoCare - Services");
                     frame.setContentPane(myForm.getServicesPanel());
                     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -111,21 +102,15 @@ public class AutomotiveServiceLogin {
     }
 
     public static void main(String[] args){
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                // One shared data store for the whole running application.
-                AutomotiveData sharedData = new AutomotiveData();
-                AutomotivePasswords session = new AutomotivePasswords(sharedData);
-
-                JFrame frame = new JFrame();
-                AutomotiveServiceLogin myForm = new AutomotiveServiceLogin(session);
-                frame.setContentPane(myForm.mainPanel);
-                frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                frame.pack();
-                frame.setLocationRelativeTo(null);
-                frame.setVisible(true);
-            }
+        SwingUtilities.invokeLater(() ->{
+            JFrame frame = new JFrame();
+            AutomotiveServiceLogin myForm = new AutomotiveServiceLogin(new AutomotivePasswords());
+            frame.setContentPane(myForm.mainPanel);
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.pack();
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
         });
+
     }
 }
