@@ -7,7 +7,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 
-public class newServiceFrom {
+public class newServiceForm {
     private DefaultTableModel appointmentModel;
     private DefaultTableModel productModel;
     private DefaultTableModel cartModel;
@@ -44,7 +44,7 @@ public class newServiceFrom {
     private final String currentClientName = SessionUser.getDisplayName();
 
 
-    public newServiceFrom() {
+    public newServiceForm() {
         appointmentModel = sharedData.getAppointmentModel();
         productModel = sharedData.getProductModel();
         cartModel = sharedData.getCartModel(currentClientUsername);

@@ -51,7 +51,7 @@ public class AutomotiveServiceLogin {
 
                 if(accounts.validClient(clientUser,clientPass)){
                     SessionUser.loginClient(clientUser, accounts.getClientName(clientUser));
-                    Services myForm = new Services();
+                    newServiceForm myForm = new newServiceForm();
                     JFrame frame = new JFrame("AutoCare - Services");
                     frame.setContentPane(myForm.getServicesPanel());
                     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
