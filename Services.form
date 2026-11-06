@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <form xmlns="http://www.intellij.com/uidesigner/form/" version="1" bind-to-class="Services">
-  <tabbedpane id="22995" binding="servicesPanel">
+  <tabbedpane id="22995" binding="servicesPanel0">
     <constraints>
       <xy x="20" y="20" width="996" height="499"/>
     </constraints>
@@ -165,14 +165,14 @@
                 <properties/>
                 <border type="none"/>
                 <children>
-                  <scrollpane id="a9c73" binding="appointmentTable">
+                  <scrollpane id="a9c73" binding="pane1">
                     <constraints>
                       <grid row="0" column="0" row-span="1" col-span="4" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
                     </constraints>
                     <properties/>
                     <border type="none"/>
                     <children>
-                      <component id="32607" class="javax.swing.JTable" binding="table1" default-binding="true">
+                      <component id="32607" class="javax.swing.JTable" binding="appointmentTable">
                         <constraints/>
                         <properties/>
                       </component>
@@ -256,20 +256,20 @@
               <text value="REMOVE ITEM"/>
             </properties>
           </component>
-          <scrollpane id="db1c3" binding="productProductTable">
+          <scrollpane id="db1c3" binding="pane2">
             <constraints>
               <grid row="3" column="1" row-span="4" col-span="8" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
             </constraints>
             <properties/>
             <border type="none"/>
             <children>
-              <component id="1b37e" class="javax.swing.JTable" binding="table2" default-binding="true">
+              <component id="1b37e" class="javax.swing.JTable" binding="productProductTable">
                 <constraints/>
                 <properties/>
               </component>
             </children>
           </scrollpane>
-          <scrollpane id="2789e" binding="productCartTable">
+          <scrollpane id="2789e" binding="pane3">
             <constraints>
               <grid row="3" column="9" row-span="2" col-span="3" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
             </constraints>
@@ -297,22 +297,6 @@
             <properties>
               <text value=""/>
             </properties>
-          </component>
-          <component id="2b028" class="javax.swing.JLabel">
-            <constraints>
-              <grid row="1" column="2" row-span="1" col-span="2" vsize-policy="0" hsize-policy="0" anchor="4" fill="0" indent="0" use-parent-layout="false"/>
-            </constraints>
-            <properties>
-              <text value="SEARCH:"/>
-            </properties>
-          </component>
-          <component id="5377c" class="javax.swing.JTextField" binding="productSearchTXT">
-            <constraints>
-              <grid row="1" column="4" row-span="1" col-span="1" vsize-policy="0" hsize-policy="6" anchor="8" fill="1" indent="0" use-parent-layout="false">
-                <preferred-size width="150" height="-1"/>
-              </grid>
-            </constraints>
-            <properties/>
           </component>
           <component id="3236b" class="javax.swing.JLabel">
             <constraints>
@@ -385,26 +369,6 @@
               <text value=""/>
             </properties>
           </component>
-          <component id="81910" class="javax.swing.JLabel">
-            <constraints>
-              <grid row="4" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="4" fill="0" indent="0" use-parent-layout="false"/>
-            </constraints>
-            <properties>
-              <text value="PAYMENT METHOD:"/>
-            </properties>
-          </component>
-          <component id="d19dc" class="javax.swing.JComboBox" binding="billingPaymentMethodCMB">
-            <constraints>
-              <grid row="4" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="2" anchor="8" fill="1" indent="0" use-parent-layout="false"/>
-            </constraints>
-            <properties>
-              <model>
-                <item value="Cash"/>
-                <item value="Debit Card"/>
-                <item value="Credit Card"/>
-              </model>
-            </properties>
-          </component>
           <component id="c20fb" class="javax.swing.JButton" binding="billingViewRecieptBT">
             <constraints>
               <grid row="8" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
@@ -471,6 +435,14 @@
             </constraints>
             <properties>
               <text value="LOGOUT"/>
+            </properties>
+          </component>
+          <component id="81910" class="javax.swing.JLabel">
+            <constraints>
+              <grid row="4" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="4" fill="0" indent="0" use-parent-layout="false"/>
+            </constraints>
+            <properties>
+              <text value="PAYMENT:"/>
             </properties>
           </component>
         </children>

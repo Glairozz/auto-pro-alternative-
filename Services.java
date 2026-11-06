@@ -16,7 +16,7 @@ public class Services {
 
     private JComboBox<String> appointmentServiceCMB;
     private JTextField appointmentVehicleTXT;
-    private JTable table1;
+    private JTable appointmentTable;
     private JTextField appointmentTimeTXT;
     private JSpinner appointmentDateSPN;
     private JButton appointmentSubmitAppBT;
@@ -25,7 +25,7 @@ public class Services {
 
     private JSpinner productQuantitySPN;
     private JButton productAddToCartBT;
-    private JTable table2;
+    private JTable productProductTable;
     private JTable table3;
     private JTextField productSearchTXT;
     private JTextField productTotalTXT;
@@ -39,49 +39,30 @@ public class Services {
     private JButton billingViewRecieptBT;
     private JButton billingReviewBillBT;
 
-    private JTabbedPane servicesPanel;
+    private JTabbedPane servicesPanel0;
     private JButton billingLogOutBT;
-    private JScrollPane appointmentTable;
-    private JScrollPane productProductTable;
-    private JScrollPane productCartTable;
+    private JScrollPane pane1;
+    private JScrollPane pane2;
+    private JScrollPane pane3;
 
-    private AutomotivePasswords sharedCred;
-    private AutomotiveData sharedData;
-    private String currentClientName;
-    private String currentClientUsername;
+    private final AutomotiveData sharedData = AutomotiveData.getInstance();
+    private final String currentClientUsername = SessionUser.getUsername();
+    private final String currentClientName = SessionUser.getDisplayName();
+
 
     public Services() {
-        this(new AutomotivePasswords());
-    }
-
-    public Services(AutomotivePasswords sharedCred) {
-        this(sharedCred, sharedCred.getAutomotiveData());
-    }
-
-    public Services(AutomotivePasswords sharedCred, AutomotiveData sharedData) {
-        this.sharedCred = sharedCred;
-        this.sharedData = sharedData;
-        currentClientUsername = sharedCred.getClientUsername();
-        if (currentClientUsername == null || currentClientUsername.trim().isEmpty()) {
-            currentClientUsername = "guest";
-        }
-        currentClientName = sharedCred.getClientName();
-        if (currentClientName == null || currentClientName.trim().isEmpty()) {
-            currentClientName = currentClientUsername;
-        }
-
         appointmentModel = sharedData.getAppointmentModel();
         productModel = sharedData.getProductModel();
         cartModel = sharedData.getCartModel(currentClientUsername);
         billModel = sharedData.getBillModel();
         transModel = sharedData.getTransactionModel();
 
-        table1.setModel(appointmentModel);
-        table2.setModel(productModel);
+        appointmentTable.setModel(appointmentModel);
+        productProductTable.setModel(productModel);
         table3.setModel(cartModel);
         billingMyBillsTable.setModel(billModel);
         billingTransacRecordTable.setModel(transModel);
-        hideTableColumn(table1, 9);
+        hideTableColumn(appointmentTable, 9);
         hideTableColumn(billingMyBillsTable, 8);
         hideTableColumn(billingTransacRecordTable, 6);
 
@@ -93,7 +74,7 @@ public class Services {
                 return clientFilter.equalsIgnoreCase(entry.getStringValue(9));
             }
         });
-        table1.setRowSorter(appointmentSorter);
+        appointmentTable.setRowSorter(appointmentSorter);
 
         TableRowSorter<DefaultTableModel> billSorter = new TableRowSorter<>(billModel);
         billSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
@@ -199,7 +180,7 @@ public class Services {
                 String time = appointmentTimeSPN.getValue().toString();
 
                 if (serviceName == null || problem == null || vehicle.isEmpty()) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Please complete all appointment details.", "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(servicesPanel0, "Please complete all appointment details.", "Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
@@ -209,13 +190,13 @@ public class Services {
                 } else if (serviceName.equals("Installation Services")) {
                     service = new InstallationService();
                 } else {
-                    JOptionPane.showMessageDialog(servicesPanel, "Please select a valid service.", "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(servicesPanel0, "Please select a valid service.", "Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
                 AppointmentDetails appointment = new AppointmentDetails(service, vehicle, problem);
                 if (!appointment.validateServiceRequest().equals("Valid Appointment")) {
-                    JOptionPane.showMessageDialog(servicesPanel, appointment.validateServiceRequest(), "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(servicesPanel0, appointment.validateServiceRequest(), "Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
@@ -226,8 +207,7 @@ public class Services {
 
                 appointmentModel.addRow(new Object[]{
                         appointmentID, currentClientName, appointment.getServiceName(), appointment.getVehicleInfo(),
-                        appointment.getServiceDetail(), schedule, appointment.getDefaultAppointmentStatus(),
-                        appointment.getDefaultServiceStatus(), String.format("₱%.2f", estimate), currentClientUsername
+                        appointment.getServiceDetail(), schedule, "Pending", "Not Started", String.format("₱%.2f", estimate), currentClientUsername
                 });
 
                 int billID = sharedData.nextBillID();
@@ -251,25 +231,25 @@ public class Services {
                 }
 
                 billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
-                JOptionPane.showMessageDialog(servicesPanel, "Appointment submitted successfully!\nPlease wait for admin approval before payment.");
+                JOptionPane.showMessageDialog(servicesPanel0, "Appointment submitted successfully!\nPlease wait for admin approval before payment.");
             }
         });
 
         productAddToCartBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                int selectedRow = table2.getSelectedRow();
+                int selectedRow = productProductTable.getSelectedRow();
                 if (selectedRow == -1) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Select a product first.");
+                    JOptionPane.showMessageDialog(servicesPanel0, "Select a product first.");
                     return;
                 }
 
-                selectedRow = table2.convertRowIndexToModel(selectedRow);
+                selectedRow = productProductTable.convertRowIndexToModel(selectedRow);
                 int quantity = (Integer) productQuantitySPN.getValue();
                 int stock = Integer.parseInt(productModel.getValueAt(selectedRow, 4).toString());
 
                 if (quantity > stock) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Not enough stock available.");
+                    JOptionPane.showMessageDialog(servicesPanel0, "Not enough stock available.");
                     return;
                 }
 
@@ -291,7 +271,7 @@ public class Services {
             public void actionPerformed(ActionEvent e) {
                 int selectedRow = table3.getSelectedRow();
                 if (selectedRow == -1) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Select an item in the cart.");
+                    JOptionPane.showMessageDialog(servicesPanel0, "Select an item in the cart.");
                     return;
                 }
 
@@ -317,7 +297,7 @@ public class Services {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (cartModel.getRowCount() == 0) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Your cart is empty.");
+                    JOptionPane.showMessageDialog(servicesPanel0, "Your cart is empty.");
                     return;
                 }
 
@@ -343,7 +323,7 @@ public class Services {
                 }
 
                 billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
-                JOptionPane.showMessageDialog(servicesPanel, "Product order confirmed!\nYou can pay for this product order immediately.");
+                JOptionPane.showMessageDialog(servicesPanel0, "Product order confirmed!\nYou can pay for this product order immediately.");
             }
         });
 
@@ -352,12 +332,12 @@ public class Services {
             public void actionPerformed(ActionEvent e) {
                 int selectedRow = billingMyBillsTable.getSelectedRow();
                 if (selectedRow == -1) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Select a bill first.");
+                    JOptionPane.showMessageDialog(servicesPanel0, "Select a bill first.");
                     return;
                 }
 
                 selectedRow = billingMyBillsTable.convertRowIndexToModel(selectedRow);
-                String billNumber = billModel.getValueAt(selectedRow, 0).toString();
+                int billNumber = Integer.parseInt(billModel.getValueAt(selectedRow, 0).toString());
                 String clientName = billModel.getValueAt(selectedRow, 1).toString();
                 String billType = billModel.getValueAt(selectedRow, 2).toString();
                 String description = billModel.getValueAt(selectedRow, 3).toString();
@@ -366,50 +346,51 @@ public class Services {
                 String paymentStatus = billModel.getValueAt(selectedRow, 6).toString();
 
                 if (!billModel.getValueAt(selectedRow, 8).toString().equalsIgnoreCase(currentClientUsername)) {
-                    JOptionPane.showMessageDialog(servicesPanel, "You can only pay your own bills.");
+                    JOptionPane.showMessageDialog(servicesPanel0, "You can only pay your own bills.");
                     return;
                 }
 
                 if (paymentStatus.equals("Paid")) {
-                    JOptionPane.showMessageDialog(servicesPanel, "This bill has already been paid.");
+                    JOptionPane.showMessageDialog(servicesPanel0, "This bill has already been paid.");
                     return;
                 }
 
-                String serviceStatus = "Not Applicable";
-
                 if (billType.equals("Service")) {
-                    Integer appointmentID = sharedData.getAppointmentIDForBill(Integer.parseInt(billNumber));
+                    Integer appointmentID = sharedData.getAppointmentIDForBill(billNumber);
+                    String currentStatus = appointmentID == null ? null : sharedData.getAppointmentStatus(appointmentID);
 
-                    if (appointmentID == null) {
-                        JOptionPane.showMessageDialog(servicesPanel, "The appointment record could not be found.");
+
+                    if (currentStatus == null) {
+                        JOptionPane.showMessageDialog(servicesPanel0, "The appointment record could not be found.");
                         return;
                     }
 
-                    String currentAppointmentStatus = sharedData.getAppointmentStatus(appointmentID);
-                    String currentServiceStatus = sharedData.getServiceStatus(appointmentID);
-
-                    if (currentAppointmentStatus == null || currentServiceStatus == null) {
-                        JOptionPane.showMessageDialog(servicesPanel, "The appointment record could not be found.");
-                        return;
-                    }
-
-                    approvalStatus = currentAppointmentStatus;
-                    serviceStatus = currentServiceStatus;
+                    approvalStatus = currentStatus;
                     billModel.setValueAt(approvalStatus, selectedRow, 5);
 
-                    String paymentBlockReason = sharedData.getPaymentBlockReason(Integer.parseInt(billNumber));
 
-                    if (paymentBlockReason != null) {
+                    if (!approvalStatus.equals("Approved")) {
                         JOptionPane.showMessageDialog(
-                                servicesPanel,
-                                "Payment is not available yet.\n\n" + paymentBlockReason,
-                                "Payment Not Available",
+                                servicesPanel0,
+                                "Payment is not available yet.\n\nYour service appointment must be approved by the admin first.\nCurrent Approval Status: " + approvalStatus,
+                                "Admin Approval Required",
+                                JOptionPane.WARNING_MESSAGE
+                        );
+                        return;
+                    }
+
+                    String serviceStatus = sharedData.getServiceStatus(appointmentID);
+                    if (serviceStatus == null || !serviceStatus.equals("Completed")) {
+                        JOptionPane.showMessageDialog(
+                                servicesPanel0,
+                                "Payment is not available yet.\n\nYour service must be completed before you can pay.\nCurrent Service Status: " + serviceStatus,
+                                "Service Not Completed",
                                 JOptionPane.WARNING_MESSAGE
                         );
                         return;
                     }
                 } else if (!billType.equals("Product")) {
-                    JOptionPane.showMessageDialog(servicesPanel, "This bill type cannot be paid.");
+                    JOptionPane.showMessageDialog(servicesPanel0, "This bill type cannot be paid.");
                     return;
                 }
 
@@ -445,7 +426,7 @@ public class Services {
                 cardNameTXT.setEnabled(false);
                 cardNumberTXT.setEnabled(false);
 
-                int choice = JOptionPane.showConfirmDialog(servicesPanel, paymentPanel, "Payment", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+                int choice = JOptionPane.showConfirmDialog(servicesPanel0, paymentPanel, "Payment", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
 
                 if (choice == JOptionPane.OK_OPTION) {
                     OrderCalculator calculator = new OrderCalculator();
@@ -454,9 +435,9 @@ public class Services {
                     if (!calculator.validatePayment(selectedMethod, cardNameTXT.getText(), cardNumberTXT.getText())) {
                         if (selectedMethod.equals("Debit") || selectedMethod.equals("Credit")) {
                             if (cardNameTXT.getText().trim().isEmpty() || cardNumberTXT.getText().trim().isEmpty()) {
-                                JOptionPane.showMessageDialog(servicesPanel, "Please enter the cardholder name and card number.");
+                                JOptionPane.showMessageDialog(servicesPanel0, "Please enter the cardholder name and card number.");
                             } else {
-                                JOptionPane.showMessageDialog(servicesPanel, "Please enter a valid card number.");
+                                JOptionPane.showMessageDialog(servicesPanel0, "Please enter a valid card number.");
                             }
                         }
                         return;
@@ -468,7 +449,6 @@ public class Services {
                         selectedMethod = "Credit Card";
                     }
 
-                    billingPaymentMethodCMB.setSelectedItem(selectedMethod);
                     billModel.setValueAt("Paid", selectedRow, 6);
 
                     int receiptID = sharedData.nextReceiptID();
@@ -478,7 +458,7 @@ public class Services {
                     double balance = 0;
                     for (int i = 0; i < billModel.getRowCount(); i++) {
                         if (billModel.getValueAt(i, 8).toString().equalsIgnoreCase(currentClientUsername)
-                            && billModel.getValueAt(i, 6).toString().equals("Unpaid")) {
+                                && billModel.getValueAt(i, 6).toString().equals("Unpaid")) {
                             String unpaidAmount = billModel.getValueAt(i, 4).toString().replace("₱", "").replace(",", "");
                             balance += Double.parseDouble(unpaidAmount);
                         }
@@ -487,7 +467,7 @@ public class Services {
                     billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
 
                     JOptionPane.showMessageDialog(
-                            servicesPanel,
+                            servicesPanel0,
                             "PAYMENT RECEIPT\n\n"
                                     + "Receipt #: " + receiptID
                                     + "\nBill #: " + billNumber
@@ -495,7 +475,6 @@ public class Services {
                                     + "\nBill Type: " + billType
                                     + "\nDescription: " + description
                                     + "\nApproval Status: " + approvalStatus
-                                    + "\nService Status: " + serviceStatus
                                     + "\nPayment Status: Paid"
                                     + "\nAmount Paid: " + amount
                                     + "\nPayment Method: " + selectedMethod
@@ -513,13 +492,13 @@ public class Services {
             public void actionPerformed(ActionEvent e) {
                 int selectedRow = billingTransacRecordTable.getSelectedRow();
                 if (selectedRow == -1) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Select a transaction first.");
+                    JOptionPane.showMessageDialog(servicesPanel0, "Select a transaction first.");
                     return;
                 }
 
                 selectedRow = billingTransacRecordTable.convertRowIndexToModel(selectedRow);
                 JOptionPane.showMessageDialog(
-                        servicesPanel,
+                        servicesPanel0,
                         "RECEIPT\n"
                                 + "Receipt #: " + transModel.getValueAt(selectedRow, 0)
                                 + "\nBill #: " + transModel.getValueAt(selectedRow, 1)
@@ -538,7 +517,7 @@ public class Services {
             public void actionPerformed(ActionEvent e) {
                 String search = productSearchTXT.getText().trim().toLowerCase();
                 if (search.isEmpty()) {
-                    table2.clearSelection();
+                    productProductTable.clearSelection();
                     return;
                 }
 
@@ -547,26 +526,27 @@ public class Services {
                     String category = productModel.getValueAt(i, 2).toString().toLowerCase();
 
                     if (name.contains(search) || category.contains(search)) {
-                        int viewRow = table2.convertRowIndexToView(i);
-                        table2.setRowSelectionInterval(viewRow, viewRow);
-                        table2.scrollRectToVisible(table2.getCellRect(viewRow, 0, true));
+                        int viewRow = productProductTable.convertRowIndexToView(i);
+                        productProductTable.setRowSelectionInterval(viewRow, viewRow);
+                        productProductTable.scrollRectToVisible(productProductTable.getCellRect(viewRow, 0, true));
                         return;
                     }
                 }
 
-                table2.clearSelection();
-                JOptionPane.showMessageDialog(servicesPanel, "Product not found.");
+                productProductTable.clearSelection();
+                JOptionPane.showMessageDialog(servicesPanel0, "Product not found.");
             }
         });
 
         billingLogOutBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                int choice = JOptionPane.showConfirmDialog(servicesPanel, "Are you sure you want to log out?", "Confirm Logout", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                int choice = JOptionPane.showConfirmDialog(servicesPanel0, "Are you sure you want to log out?", "Confirm Logout", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 
                 if (choice == JOptionPane.YES_OPTION) {
-                    JFrame servicesFrame = (JFrame) SwingUtilities.getWindowAncestor(servicesPanel);
-                    AutomotiveServiceLogin login = new AutomotiveServiceLogin(sharedCred);
+                    JFrame servicesFrame = (JFrame) SwingUtilities.getWindowAncestor(servicesPanel0);
+                    SessionUser.logout();
+                    AutomotiveServiceLogin login = new AutomotiveServiceLogin();
                     JFrame loginFrame = new JFrame("AutoCare Pro - Login");
                     loginFrame.setContentPane(login.getMainPanel());
                     loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -582,7 +562,7 @@ public class Services {
     }
 
     public JTabbedPane getServicesPanel() {
-        return servicesPanel;
+        return servicesPanel0;
     }
 
     private void hideTableColumn(JTable table, int modelColumn) {

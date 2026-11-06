@@ -16,20 +16,17 @@ public class AutomotiveServiceLogin {
         return mainPanel;
     }
     String adminPass, adminUser, clientPass, clientUser;
-    AutomotivePasswords verifyCred;
-    public AutomotiveServiceLogin(AutomotivePasswords sharedCred) {
-        this.verifyCred =sharedCred;
+
+    public AutomotiveServiceLogin() {
         btnAdminLogin.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 adminPass=txtAdminPass.getText();
-                adminUser=txtAdminUser.getText();
-                verifyCred.setAdminPass(adminPass);
-                verifyCred.setAdminUsername(adminUser);
+                adminUser=txtAdminUser.getText().trim();
 
-                if(verifyCred.checkAdminCred(verifyCred.getAdminUsername(), verifyCred.getAdminPass()).equals("Valid")){
-                    AdminPanel myForm = new AdminPanel(verifyCred);
-                    JFrame frame = new JFrame("AutoCare - Services");
+                if(StoreAccounts.getInstance().validAdmin(adminUser, adminPass)){
+                    AdminPanel myForm = new AdminPanel();
+                    JFrame frame = new JFrame("AutoCare - Admin");
                     frame.setContentPane(myForm.getAdminPanel());
                     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
                     frame.pack();
@@ -49,12 +46,12 @@ public class AutomotiveServiceLogin {
             @Override
             public void actionPerformed(ActionEvent e) {
                 clientPass=txtClientPass.getText();
-                clientUser=txtClientUser.getText();
-                verifyCred.setClientUsername(clientUser);
-                verifyCred.setClientPass(clientPass);
+                clientUser=txtClientUser.getText().trim();
+                StoreAccounts accounts = StoreAccounts.getInstance();
 
-                if(verifyCred.checkClientCred(verifyCred.getClientUsername(), verifyCred.getClientPass()).equals("Valid")){
-                    Services myForm = new Services(verifyCred);
+                if(accounts.validClient(clientUser,clientPass)){
+                    SessionUser.loginClient(clientUser, accounts.getClientName(clientUser));
+                    Services myForm = new Services();
                     JFrame frame = new JFrame("AutoCare - Services");
                     frame.setContentPane(myForm.getServicesPanel());
                     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -76,14 +73,13 @@ public class AutomotiveServiceLogin {
             public void actionPerformed(ActionEvent e) {
                 try{
                     JFrame registerFrame = new JFrame("Registration");
-                    AutomotiveClientInfo clientInfo = new AutomotiveClientInfo(verifyCred);
+                    AutomotiveClientInfo clientInfo = new AutomotiveClientInfo();
 
                     JPanel panel = clientInfo.getRegisterPanel();
                     if (panel==null) {
                         JOptionPane.showMessageDialog(null, "Error: getRegisterPanel() returned null. Check AutomotiveClientInfo.java!", "Null Panel Error", JOptionPane.ERROR_MESSAGE);
                         return;
                     }
-
                     registerFrame.setContentPane(panel);
                     registerFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
                     registerFrame.pack();
@@ -104,7 +100,7 @@ public class AutomotiveServiceLogin {
     public static void main(String[] args){
         SwingUtilities.invokeLater(() ->{
             JFrame frame = new JFrame();
-            AutomotiveServiceLogin myForm = new AutomotiveServiceLogin(new AutomotivePasswords());
+            AutomotiveServiceLogin myForm = new AutomotiveServiceLogin();
             frame.setContentPane(myForm.mainPanel);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.pack();

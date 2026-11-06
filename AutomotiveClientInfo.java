@@ -10,11 +10,9 @@ public class AutomotiveClientInfo {
     private JPasswordField txtRePass;
     private JPanel registerPanel;
     private JButton btnCancel;
-    private final AutomotivePasswords clientInfo;
     String pass, rePass, user, name;
 
-    public AutomotiveClientInfo(AutomotivePasswords clientInfo) {
-        this.clientInfo = clientInfo;
+    public AutomotiveClientInfo() {
         btnSignUp.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -32,18 +30,15 @@ public class AutomotiveClientInfo {
                     return;
                 }
 
-                clientInfo.setClientUsername(user);
-                clientInfo.setClientPass(pass);
-                clientInfo.setClientName(name);
-
-                // Adds exactly one complete account row to clientCredList's Vector.
-                if (clientInfo.checkClientCred(user, pass, name) != 0) {
+                String error = StoreAccounts.getInstance().registerClient(user, pass, name);
+                if(error != null){
+                    JOptionPane.showMessageDialog(registerPanel, error, "Registration Error", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
                 try {
                     JFrame loginFrame = new JFrame("Login");
-                    AutomotiveServiceLogin loginPanel = new AutomotiveServiceLogin(clientInfo);
+                    AutomotiveServiceLogin loginPanel = new AutomotiveServiceLogin();
                     JPanel panel = loginPanel.getMainPanel();
 
                     if (panel == null) {
@@ -71,7 +66,7 @@ public class AutomotiveClientInfo {
             public void actionPerformed(ActionEvent e) {
                 try {
                     JFrame loginFrame = new JFrame("Login");
-                    AutomotiveServiceLogin loginPanel = new AutomotiveServiceLogin(clientInfo);
+                    AutomotiveServiceLogin loginPanel = new AutomotiveServiceLogin();
                     JPanel panel = loginPanel.getMainPanel();
                     if (panel == null) {
                         JOptionPane.showMessageDialog(null, "Error: getMainPanel() returned null. Check AutomotiveServiceLogin.java!", "Null Panel Error", JOptionPane.ERROR_MESSAGE);
