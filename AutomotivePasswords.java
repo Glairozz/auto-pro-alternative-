@@ -1,7 +1,7 @@
 public class AutomotivePasswords extends AutomotivePasswordsList {
     private String clientUsername, clientPass, clientName, adminUsername, adminPass;
     // One shared in-memory data store for every login and screen in this running application.
-    private static final AutomotiveData automotiveData = new AutomotiveData();
+    private static final AutomotiveData automotiveData = AutomotiveData.getInstance();
 
     void setClientUsername(String inputClientUsername) {
         clientUsername = inputClientUsername == null ? null : inputClientUsername.trim();
