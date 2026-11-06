@@ -1,8 +1,11 @@
 import javax.swing.*;
+import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 public class AutomotiveServiceLogin {
+    private static final Dimension ADMIN_CLIENT_WINDOW_SIZE = new Dimension(1100, 700);
+
     private JTabbedPane tabbedPane1;
     private JTextField txtAdminUser;
     private JTextField txtAdminPass;
@@ -29,8 +32,7 @@ public class AutomotiveServiceLogin {
                     JFrame frame = new JFrame("AutoCare - Admin");
                     frame.setContentPane(myForm.getAdminPanel());
                     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                    frame.pack();
-                    frame.setLocationRelativeTo(null);
+                    applyFixedWindowSize(frame);
                     frame.setVisible(true);
                     JFrame loginFrame = (JFrame) SwingUtilities.getWindowAncestor(mainPanel);
 
@@ -55,8 +57,7 @@ public class AutomotiveServiceLogin {
                     JFrame frame = new JFrame("AutoCare - Services");
                     frame.setContentPane(myForm.getServicesPanel());
                     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                    frame.pack();
-                    frame.setLocationRelativeTo(null);
+                    applyFixedWindowSize(frame);
                     frame.setVisible(true);
                     JFrame loginFrame = (JFrame) SwingUtilities.getWindowAncestor(mainPanel);
 
@@ -95,6 +96,14 @@ public class AutomotiveServiceLogin {
                 }
             }
         });
+    }
+
+    private static void applyFixedWindowSize(JFrame frame) {
+        frame.setPreferredSize(ADMIN_CLIENT_WINDOW_SIZE);
+        frame.pack();
+        frame.setSize(ADMIN_CLIENT_WINDOW_SIZE);
+        frame.setResizable(false);
+        frame.setLocationRelativeTo(null);
     }
 
     public static void main(String[] args){
