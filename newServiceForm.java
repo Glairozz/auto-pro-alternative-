@@ -157,18 +157,22 @@ public class newServiceForm {
         ActionListener serviceTypeListener = new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                updateServiceProblemOptions();
+                if (repairServicesRadioButton.isSelected()) {
+                    appointmentProblemCMB.setModel(new DefaultComboBoxModel<String>(new RepairService().getServiceDetails()));
+                } else {
+                    appointmentProblemCMB.setModel(new DefaultComboBoxModel<String>(new InstallationService().getServiceDetails()));
+                }
             }
         };
         repairServicesRadioButton.addActionListener(serviceTypeListener);
         installationServicesRadioButton.addActionListener(serviceTypeListener);
         repairServicesRadioButton.setSelected(true);
-        updateServiceProblemOptions();
+        serviceTypeListener.actionPerformed(null);
 
         appointmentSubmitAppBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String serviceName = getSelectedServiceName();
+                String serviceName = repairServicesRadioButton.isSelected() ? "Repair Services" : "Installation Services";
                 String vehicle = appointmentVehicleTXT.getText().trim();
                 String problem = (String) appointmentProblemCMB.getSelectedItem();
                 String time = appointmentTimeSPN.getValue().toString();
@@ -292,10 +296,34 @@ public class newServiceForm {
                 OrderCalculator calculator = new OrderCalculator();
                 double total = calculator.calculateCartTotal(cartModel);
                 int billID = sharedData.nextBillID();
-                String productDescription = buildProductOrderDescription();
+
+                StringBuilder productDetails = new StringBuilder("Product Order: ");
+                for (int i = 0; i < cartModel.getRowCount(); i++) {
+                    String productID = cartModel.getValueAt(i, 0).toString();
+                    String productName = cartModel.getValueAt(i, 1).toString();
+                    int quantity = Integer.parseInt(cartModel.getValueAt(i, 2).toString());
+                    double subtotal = Double.parseDouble(cartModel.getValueAt(i, 3).toString());
+                    double price = 0;
+
+                    for (int j = 0; j < productModel.getRowCount(); j++) {
+                        if (productModel.getValueAt(j, 0).toString().equals(productID)) {
+                            price = Double.parseDouble(productModel.getValueAt(j, 3).toString());
+                            break;
+                        }
+                    }
+
+                    if (i > 0) {
+                        productDetails.append("; ");
+                    }
+
+                    productDetails.append(productName)
+                            .append(" x").append(quantity)
+                            .append(" @ ").append(String.format("₱%.2f", price))
+                            .append(" = ").append(String.format("₱%.2f", subtotal));
+                }
 
                 billModel.addRow(new Object[]{
-                        billID, currentClientName, "Product", productDescription, String.format("₱%.2f", total),
+                        billID, currentClientName, "Product", productDetails.toString(), String.format("₱%.2f", total),
                         "Not Required", "Unpaid", new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date()), currentClientUsername
                 });
 
@@ -475,10 +503,81 @@ public class newServiceForm {
                 }
 
                 selectedRow = billingTransacRecordTable.convertRowIndexToModel(selectedRow);
-                String receipt = buildReceiptText(selectedRow);
+                StringBuilder receipt = new StringBuilder();
+
+                receipt.append("PAYMENT RECEIPT\n");
+                receipt.append("========================================\n");
+                receipt.append("Receipt #: ").append(transModel.getValueAt(selectedRow, 0)).append("\n");
+                receipt.append("Transaction Date: ").append(transModel.getValueAt(selectedRow, 5)).append("\n");
+                receipt.append("Client: ").append(transModel.getValueAt(selectedRow, 2)).append("\n");
+                receipt.append("Amount Paid: ").append(transModel.getValueAt(selectedRow, 3)).append("\n");
+                receipt.append("Payment Method: ").append(transModel.getValueAt(selectedRow, 4)).append("\n");
+                receipt.append("Payment Status: Paid\n\n");
+
+                int billNumber = Integer.parseInt(transModel.getValueAt(selectedRow, 1).toString());
+                int billRow = -1;
+                for (int i = 0; i < billModel.getRowCount(); i++) {
+                    if (Integer.parseInt(billModel.getValueAt(i, 0).toString()) == billNumber) {
+                        billRow = i;
+                        break;
+                    }
+                }
+
+                if (billRow >= 0) {
+                    String billType = billModel.getValueAt(billRow, 2).toString();
+
+                    receipt.append("BILL DETAILS\n");
+                    receipt.append("----------------------------------------\n");
+                    receipt.append("Bill #: ").append(billNumber).append("\n");
+                    receipt.append("Bill Type: ").append(billType).append("\n");
+                    receipt.append("Bill Amount: ").append(billModel.getValueAt(billRow, 4)).append("\n");
+                    receipt.append("Approval Status: ").append(billModel.getValueAt(billRow, 5)).append("\n");
+                    receipt.append("Bill Date: ").append(billModel.getValueAt(billRow, 7)).append("\n\n");
+
+                    if (billType.equals("Service")) {
+                        receipt.append("SERVICE DETAILS\n");
+                        receipt.append("----------------------------------------\n");
+                        receipt.append("Description: ").append(billModel.getValueAt(billRow, 3)).append("\n");
+
+                        Integer appointmentID = sharedData.getAppointmentIDForBill(billNumber);
+                        if (appointmentID != null) {
+                            for (int i = 0; i < appointmentModel.getRowCount(); i++) {
+                                if (Integer.parseInt(appointmentModel.getValueAt(i, 0).toString()) == appointmentID) {
+                                    receipt.append("Service Type: ").append(appointmentModel.getValueAt(i, 2)).append("\n");
+                                    receipt.append("Vehicle: ").append(appointmentModel.getValueAt(i, 3)).append("\n");
+                                    receipt.append("Service Detail: ").append(appointmentModel.getValueAt(i, 4)).append("\n");
+                                    receipt.append("Schedule: ").append(appointmentModel.getValueAt(i, 5)).append("\n");
+                                    receipt.append("Appointment Status: ").append(appointmentModel.getValueAt(i, 6)).append("\n");
+                                    receipt.append("Service Status: ").append(appointmentModel.getValueAt(i, 7)).append("\n");
+                                    receipt.append("Service Estimate: ").append(appointmentModel.getValueAt(i, 8)).append("\n");
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        String details = billModel.getValueAt(billRow, 3).toString();
+
+                        receipt.append("PRODUCT DETAILS\n");
+                        receipt.append("----------------------------------------\n");
+
+                        if (details.startsWith("Product Order: ")) {
+                            details = details.substring("Product Order: ".length());
+                        }
+
+                        if (details.equals("Product Order") || details.trim().isEmpty()) {
+                            receipt.append("No itemized product details available.\n");
+                        } else {
+                            for (String item : details.split("; ")) {
+                                receipt.append("- ").append(item).append("\n");
+                            }
+                        }
+                    }
+                }
+
+                receipt.append("\nThank you for your payment.\n");
                 JOptionPane.showMessageDialog(
                         servicesPanel,
-                        receipt,
+                        receipt.toString(),
                         "Receipt",
                         JOptionPane.INFORMATION_MESSAGE
                 );
@@ -528,322 +627,98 @@ public class newServiceForm {
         });
     }
 
-    private void updateServiceProblemOptions() {
-        if (repairServicesRadioButton.isSelected()) {
-            RepairService repairService = new RepairService();
-            appointmentProblemCMB.setModel(new DefaultComboBoxModel<String>(repairService.getServiceDetails()));
-        } else if (installationServicesRadioButton.isSelected()) {
-            InstallationService installationService = new InstallationService();
-            appointmentProblemCMB.setModel(new DefaultComboBoxModel<String>(installationService.getServiceDetails()));
-        } else {
-            appointmentProblemCMB.setModel(new DefaultComboBoxModel<String>());
-        }
-    }
-
-    private String getSelectedServiceName() {
-        if (repairServicesRadioButton.isSelected()) {
-            return "Repair Services";
-        }
-
-        if (installationServicesRadioButton.isSelected()) {
-            return "Installation Services";
-        }
-
-        return null;
-    }
-
-    private String buildProductOrderDescription() {
-        StringBuilder description = new StringBuilder("Product Order: ");
-
-        for (int i = 0; i < cartModel.getRowCount(); i++) {
-            String productID = cartModel.getValueAt(i, 0).toString();
-            String productName = cartModel.getValueAt(i, 1).toString();
-            int quantity = Integer.parseInt(cartModel.getValueAt(i, 2).toString());
-            double subtotal = Double.parseDouble(cartModel.getValueAt(i, 3).toString());
-            double unitPrice = getProductPrice(productID);
-
-            if (i > 0) {
-                description.append("; ");
-            }
-
-            description.append(productName)
-                    .append(" x").append(quantity)
-                    .append(" @ ").append(String.format("₱%.2f", unitPrice))
-                    .append(" = ").append(String.format("₱%.2f", subtotal));
-        }
-
-        return description.toString();
-    }
-
-    private double getProductPrice(String productID) {
-        for (int i = 0; i < productModel.getRowCount(); i++) {
-            if (productModel.getValueAt(i, 0).toString().equals(productID)) {
-                return Double.parseDouble(productModel.getValueAt(i, 3).toString());
-            }
-        }
-
-        return 0;
-    }
-
     private void updateBillingReviewText() {
         if (billingTXTArea == null) {
             return;
         }
 
-        billingTXTArea.setText(buildBillingReviewText());
-        billingTXTArea.setCaretPosition(0);
-    }
-
-    private String buildBillingReviewText() {
-        StringBuilder text = new StringBuilder();
-
-        text.append("BILLING REVIEW\n");
+        StringBuilder text = new StringBuilder("BILLING REVIEW\n");
         text.append("========================================\n");
         text.append("Client: ").append(currentClientName).append("\n");
         text.append("Username: ").append(currentClientUsername).append("\n");
         text.append("Outstanding Balance: ").append(String.format("₱%.2f", calculateOutstandingBalance())).append("\n\n");
 
-        int selectedBillRow = billingMyBillsTable.getSelectedRow();
-        if (selectedBillRow >= 0) {
-            selectedBillRow = billingMyBillsTable.convertRowIndexToModel(selectedBillRow);
-            appendBillDetails(text, selectedBillRow, "SELECTED BILL");
+        int billRow = billingMyBillsTable.getSelectedRow();
+        if (billRow >= 0) {
+            billRow = billingMyBillsTable.convertRowIndexToModel(billRow);
+            text.append("SELECTED BILL\n");
+            text.append("----------------------------------------\n");
+            text.append("Bill #: ").append(billModel.getValueAt(billRow, 0)).append("\n");
+            text.append("Type: ").append(billModel.getValueAt(billRow, 2)).append("\n");
+            text.append("Description: ").append(billModel.getValueAt(billRow, 3)).append("\n");
+            text.append("Amount: ").append(billModel.getValueAt(billRow, 4)).append("\n");
+            text.append("Approval: ").append(billModel.getValueAt(billRow, 5)).append("\n");
+            text.append("Payment: ").append(billModel.getValueAt(billRow, 6)).append("\n");
+            text.append("Date: ").append(billModel.getValueAt(billRow, 7)).append("\n\n");
         } else {
             text.append("BILLS\n");
             text.append("----------------------------------------\n");
 
-            boolean hasBills = false;
+            boolean hasBill = false;
             for (int i = 0; i < billModel.getRowCount(); i++) {
-                if (isCurrentClient(billModel, i, 8)) {
-                    appendBillSummary(text, i);
-                    hasBills = true;
+                if (currentClientUsername.equalsIgnoreCase(billModel.getValueAt(i, 8).toString())) {
+                    text.append("Bill #").append(billModel.getValueAt(i, 0))
+                            .append(" | ").append(billModel.getValueAt(i, 2))
+                            .append(" | ").append(billModel.getValueAt(i, 4)).append("\n");
+                    text.append("  ").append(billModel.getValueAt(i, 3)).append("\n");
+                    text.append("  Approval: ").append(billModel.getValueAt(i, 5))
+                            .append(" | Payment: ").append(billModel.getValueAt(i, 6)).append("\n");
+                    hasBill = true;
                 }
             }
 
-            if (!hasBills) {
+            if (!hasBill) {
                 text.append("No bills found.\n");
             }
+            text.append("\n");
         }
 
-        text.append("\n");
-
-        int selectedTransactionRow = billingTransacRecordTable.getSelectedRow();
-        if (selectedTransactionRow >= 0) {
-            selectedTransactionRow = billingTransacRecordTable.convertRowIndexToModel(selectedTransactionRow);
-            appendTransactionDetails(text, selectedTransactionRow);
+        int transactionRow = billingTransacRecordTable.getSelectedRow();
+        if (transactionRow >= 0) {
+            transactionRow = billingTransacRecordTable.convertRowIndexToModel(transactionRow);
+            text.append("SELECTED TRANSACTION\n");
+            text.append("----------------------------------------\n");
+            text.append("Receipt #: ").append(transModel.getValueAt(transactionRow, 0)).append("\n");
+            text.append("Bill #: ").append(transModel.getValueAt(transactionRow, 1)).append("\n");
+            text.append("Amount: ").append(transModel.getValueAt(transactionRow, 3)).append("\n");
+            text.append("Method: ").append(transModel.getValueAt(transactionRow, 4)).append("\n");
+            text.append("Date: ").append(transModel.getValueAt(transactionRow, 5)).append("\n");
         } else {
             text.append("TRANSACTIONS\n");
             text.append("----------------------------------------\n");
 
-            boolean hasTransactions = false;
+            boolean hasTransaction = false;
             for (int i = 0; i < transModel.getRowCount(); i++) {
-                if (isCurrentClient(transModel, i, 6)) {
-                    appendTransactionSummary(text, i);
-                    hasTransactions = true;
+                if (currentClientUsername.equalsIgnoreCase(transModel.getValueAt(i, 6).toString())) {
+                    text.append("Receipt #").append(transModel.getValueAt(i, 0))
+                            .append(" | Bill #").append(transModel.getValueAt(i, 1))
+                            .append(" | ").append(transModel.getValueAt(i, 3)).append("\n");
+                    text.append("  Method: ").append(transModel.getValueAt(i, 4))
+                            .append(" | Date: ").append(transModel.getValueAt(i, 5)).append("\n");
+                    hasTransaction = true;
                 }
             }
 
-            if (!hasTransactions) {
+            if (!hasTransaction) {
                 text.append("No transactions found.\n");
             }
         }
 
-        return text.toString();
-    }
-
-    private void appendBillSummary(StringBuilder text, int row) {
-        text.append("Bill #").append(valueAt(billModel, row, 0))
-                .append(" | ").append(valueAt(billModel, row, 2))
-                .append(" | ").append(valueAt(billModel, row, 4)).append("\n");
-        text.append("  Description: ").append(valueAt(billModel, row, 3)).append("\n");
-        text.append("  Approval: ").append(valueAt(billModel, row, 5))
-                .append(" | Payment: ").append(valueAt(billModel, row, 6)).append("\n");
-        text.append("  Date: ").append(valueAt(billModel, row, 7)).append("\n");
-    }
-
-    private void appendBillDetails(StringBuilder text, int row, String heading) {
-        if (heading != null) {
-            text.append(heading).append("\n");
-            text.append("----------------------------------------\n");
-        }
-
-        int billNumber = Integer.parseInt(valueAt(billModel, row, 0));
-        String billType = valueAt(billModel, row, 2);
-
-        text.append("Bill #: ").append(billNumber).append("\n");
-        text.append("Client: ").append(valueAt(billModel, row, 1)).append("\n");
-        text.append("Bill Type: ").append(billType).append("\n");
-        text.append("Description: ").append(valueAt(billModel, row, 3)).append("\n");
-        text.append("Bill Amount: ").append(valueAt(billModel, row, 4)).append("\n");
-        text.append("Approval Status: ").append(valueAt(billModel, row, 5)).append("\n");
-        text.append("Payment Status: ").append(valueAt(billModel, row, 6)).append("\n");
-        text.append("Bill Date: ").append(valueAt(billModel, row, 7)).append("\n");
-
-        if ("Service".equals(billType)) {
-            appendLinkedAppointment(text, billNumber);
-        }
-
-        text.append("\n");
-    }
-
-    private void appendTransactionSummary(StringBuilder text, int row) {
-        text.append("Receipt #").append(valueAt(transModel, row, 0))
-                .append(" | Bill #").append(valueAt(transModel, row, 1))
-                .append(" | ").append(valueAt(transModel, row, 3)).append("\n");
-        text.append("  Client: ").append(valueAt(transModel, row, 2)).append("\n");
-        text.append("  Method: ").append(valueAt(transModel, row, 4)).append("\n");
-        text.append("  Date: ").append(valueAt(transModel, row, 5)).append("\n");
-    }
-
-    private void appendTransactionDetails(StringBuilder text, int row) {
-        int billNumber = Integer.parseInt(valueAt(transModel, row, 1));
-
-        text.append("SELECTED TRANSACTION\n");
-        text.append("----------------------------------------\n");
-        appendTransactionSummary(text, row);
-
-        int billRow = findBillRow(billNumber);
-        if (billRow >= 0) {
-            text.append("\nLINKED BILL\n");
-            text.append("----------------------------------------\n");
-            appendBillDetails(text, billRow, null);
-        }
-    }
-
-    private void appendLinkedAppointment(StringBuilder text, int billNumber) {
-        Integer appointmentID = sharedData.getAppointmentIDForBill(billNumber);
-        if (appointmentID == null) {
-            return;
-        }
-
-        int row = findAppointmentRow(appointmentID);
-        if (row < 0) {
-            return;
-        }
-
-        text.append("Service Type: ").append(valueAt(appointmentModel, row, 2)).append("\n");
-        text.append("Vehicle: ").append(valueAt(appointmentModel, row, 3)).append("\n");
-        text.append("Service Detail: ").append(valueAt(appointmentModel, row, 4)).append("\n");
-        text.append("Schedule: ").append(valueAt(appointmentModel, row, 5)).append("\n");
-        text.append("Appointment Status: ").append(valueAt(appointmentModel, row, 6)).append("\n");
-        text.append("Service Status: ").append(valueAt(appointmentModel, row, 7)).append("\n");
-        text.append("Service Estimate: ").append(valueAt(appointmentModel, row, 8)).append("\n");
-    }
-
-    private String buildReceiptText(int transactionRow) {
-        StringBuilder text = new StringBuilder();
-
-        text.append("PAYMENT RECEIPT\n");
-        text.append("========================================\n");
-        text.append("Receipt #: ").append(valueAt(transModel, transactionRow, 0)).append("\n");
-        text.append("Transaction Date: ").append(valueAt(transModel, transactionRow, 5)).append("\n");
-        text.append("Client: ").append(valueAt(transModel, transactionRow, 2)).append("\n");
-        text.append("Amount Paid: ").append(valueAt(transModel, transactionRow, 3)).append("\n");
-        text.append("Payment Method: ").append(valueAt(transModel, transactionRow, 4)).append("\n");
-        text.append("Payment Status: Paid\n\n");
-
-        int billNumber = Integer.parseInt(valueAt(transModel, transactionRow, 1));
-        int billRow = findBillRow(billNumber);
-
-        if (billRow >= 0) {
-            String billType = valueAt(billModel, billRow, 2);
-
-            text.append("BILL DETAILS\n");
-            text.append("----------------------------------------\n");
-            text.append("Bill #: ").append(billNumber).append("\n");
-            text.append("Bill Type: ").append(billType).append("\n");
-            text.append("Bill Amount: ").append(valueAt(billModel, billRow, 4)).append("\n");
-            text.append("Approval Status: ").append(valueAt(billModel, billRow, 5)).append("\n");
-            text.append("Bill Date: ").append(valueAt(billModel, billRow, 7)).append("\n\n");
-
-            if ("Service".equals(billType)) {
-                text.append("SERVICE DETAILS\n");
-                text.append("----------------------------------------\n");
-                text.append("Description: ").append(valueAt(billModel, billRow, 3)).append("\n");
-                appendLinkedAppointment(text, billNumber);
-            } else {
-                text.append("PRODUCT DETAILS\n");
-                text.append("----------------------------------------\n");
-                text.append(formatProductDetails(valueAt(billModel, billRow, 3))).append("\n");
-            }
-        }
-
-        text.append("\nThank you for your payment.\n");
-        return text.toString();
-    }
-
-    private String formatProductDetails(String description) {
-        if (description == null || description.trim().isEmpty()) {
-            return "No product details available.";
-        }
-
-        String details = description;
-        String prefix = "Product Order: ";
-        if (details.startsWith(prefix)) {
-            details = details.substring(prefix.length());
-        }
-
-        if (details.equals("Product Order") || details.trim().isEmpty()) {
-            return "No itemized product details available.";
-        }
-
-        StringBuilder formatted = new StringBuilder();
-        String[] items = details.split("; ");
-
-        for (String item : items) {
-            if (formatted.length() > 0) {
-                formatted.append("\n");
-            }
-
-            formatted.append("- ").append(item);
-        }
-
-        return formatted.toString();
+        billingTXTArea.setText(text.toString());
+        billingTXTArea.setCaretPosition(0);
     }
 
     private double calculateOutstandingBalance() {
         double balance = 0;
 
         for (int i = 0; i < billModel.getRowCount(); i++) {
-            if (isCurrentClient(billModel, i, 8) && "Unpaid".equals(valueAt(billModel, i, 6))) {
-                balance += parseAmount(valueAt(billModel, i, 4));
+            if (currentClientUsername.equalsIgnoreCase(billModel.getValueAt(i, 8).toString())
+                    && "Unpaid".equals(billModel.getValueAt(i, 6).toString())) {
+                balance += Double.parseDouble(billModel.getValueAt(i, 4).toString().replace("₱", "").replace(",", "").trim());
             }
         }
 
         return balance;
-    }
-
-    private double parseAmount(String amount) {
-        return Double.parseDouble(amount.replace("₱", "").replace(",", "").trim());
-    }
-
-    private boolean isCurrentClient(DefaultTableModel model, int row, int column) {
-        return currentClientUsername != null
-                && currentClientUsername.equalsIgnoreCase(valueAt(model, row, column));
-    }
-
-    private String valueAt(DefaultTableModel model, int row, int column) {
-        Object value = model.getValueAt(row, column);
-        return value == null ? "" : value.toString();
-    }
-
-    private int findBillRow(int billNumber) {
-        for (int i = 0; i < billModel.getRowCount(); i++) {
-            if (Integer.parseInt(valueAt(billModel, i, 0)) == billNumber) {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    private int findAppointmentRow(int appointmentID) {
-        for (int i = 0; i < appointmentModel.getRowCount(); i++) {
-            if (Integer.parseInt(valueAt(appointmentModel, i, 0)) == appointmentID) {
-                return i;
-            }
-        }
-
-        return -1;
     }
 
     public JPanel getServicesPanel() {
