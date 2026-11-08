@@ -1,7 +1,5 @@
 import javax.swing.*;
 import java.awt.Dimension;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
 public class AutomotiveServiceLogin {
     private static final Dimension ADMIN_CLIENT_WINDOW_SIZE = new Dimension(1100, 700);
@@ -18,84 +16,62 @@ public class AutomotiveServiceLogin {
     public JPanel getMainPanel(){
         return mainPanel;
     }
-    String adminPass, adminUser, clientPass, clientUser;
 
     public AutomotiveServiceLogin() {
-        btnAdminLogin.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                adminPass=txtAdminPass.getText();
-                adminUser=txtAdminUser.getText().trim();
+        btnAdminLogin.addActionListener(e -> {
+            String adminPass = txtAdminPass.getText();
+            String adminUser = txtAdminUser.getText().trim();
 
-                if(StoreAccounts.getInstance().validAdmin(adminUser, adminPass)){
-                    AdminPanel myForm = new AdminPanel();
-                    JFrame frame = new JFrame("AutoCare - Admin");
-                    frame.setContentPane(myForm.getAdminPanel());
-                    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                    applyFixedWindowSize(frame);
-                    frame.setVisible(true);
-                    JFrame loginFrame = (JFrame) SwingUtilities.getWindowAncestor(mainPanel);
-
-                    if(loginFrame != null){
-                        loginFrame.dispose();
-                    }
-                } else {
-                    JOptionPane.showMessageDialog(null, "Invalid Username or Password", "Invalid", JOptionPane.WARNING_MESSAGE);
-                }
+            if (StoreAccounts.getInstance().validAdmin(adminUser, adminPass)) {
+                showFixedSizeWindow("AutoCare - Admin", new AdminPanel().getAdminPanel());
+                closeLoginWindow();
+            } else {
+                JOptionPane.showMessageDialog(null, "Invalid Username or Password", "Invalid", JOptionPane.WARNING_MESSAGE);
             }
         });
-        btnClientLogin.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                clientPass=txtClientPass.getText();
-                clientUser=txtClientUser.getText().trim();
-                StoreAccounts accounts = StoreAccounts.getInstance();
 
-                if(accounts.validClient(clientUser,clientPass)){
-                    SessionUser.loginClient(clientUser, accounts.getClientName(clientUser));
-                    newServiceForm myForm = new newServiceForm();
-                    JFrame frame = new JFrame("AutoCare - Services");
-                    frame.setContentPane(myForm.getServicesPanel());
-                    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                    applyFixedWindowSize(frame);
-                    frame.setVisible(true);
-                    JFrame loginFrame = (JFrame) SwingUtilities.getWindowAncestor(mainPanel);
+        btnClientLogin.addActionListener(e -> {
+            String clientPass = txtClientPass.getText();
+            String clientUser = txtClientUser.getText().trim();
+            StoreAccounts accounts = StoreAccounts.getInstance();
 
-                    if(loginFrame != null){
-                        loginFrame.dispose();
-                    }
-                } else {
-                    JOptionPane.showMessageDialog(null, "Invalid Username or Password", "Invalid", JOptionPane.WARNING_MESSAGE);
-                }
+            if (accounts.validClient(clientUser, clientPass)) {
+                SessionUser.loginClient(clientUser, accounts.getClientName(clientUser));
+                showFixedSizeWindow("AutoCare - Services", new newServiceForm().getServicesPanel());
+                closeLoginWindow();
+            } else {
+                JOptionPane.showMessageDialog(null, "Invalid Username or Password", "Invalid", JOptionPane.WARNING_MESSAGE);
             }
         });
-        btnClientRegister.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                try{
-                    JFrame registerFrame = new JFrame("Registration");
-                    AutomotiveClientInfo clientInfo = new AutomotiveClientInfo();
 
-                    JPanel panel = clientInfo.getRegisterPanel();
-                    if (panel==null) {
-                        JOptionPane.showMessageDialog(null, "Error: getRegisterPanel() returned null. Check AutomotiveClientInfo.java!", "Null Panel Error", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-                    registerFrame.setContentPane(panel);
-                    registerFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                    registerFrame.pack();
-                    registerFrame.setLocationRelativeTo(null);
-                    registerFrame.setVisible(true);
+        btnClientRegister.addActionListener(e -> {
+            try {
+                JFrame registerFrame = new JFrame("Registration");
+                AutomotiveClientInfo clientInfo = new AutomotiveClientInfo();
+                JPanel panel = clientInfo.getRegisterPanel();
 
-                    JFrame currentFrame = (JFrame) SwingUtilities.getWindowAncestor(mainPanel);
-                    if (currentFrame != null) {
-                        currentFrame.dispose();
-                    }
-                } catch(Exception ex){
-                    ex.printStackTrace();
+                if (panel == null) {
+                    JOptionPane.showMessageDialog(null, "Error: getRegisterPanel() returned null. Check AutomotiveClientInfo.java!", "Null Panel Error", JOptionPane.ERROR_MESSAGE);
+                    return;
                 }
+
+                registerFrame.setContentPane(panel);
+                registerFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                registerFrame.pack();
+                registerFrame.setLocationRelativeTo(null);
+                registerFrame.setVisible(true);
+                closeLoginWindow();
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
         });
+    }
+
+    private void closeLoginWindow() {
+        JFrame loginFrame = (JFrame) SwingUtilities.getWindowAncestor(mainPanel);
+        if (loginFrame != null) {
+            loginFrame.dispose();
+        }
     }
 
     private static void applyFixedWindowSize(JFrame frame) {
@@ -106,17 +82,31 @@ public class AutomotiveServiceLogin {
         frame.setLocationRelativeTo(null);
     }
 
+    private static void showFixedSizeWindow(String title, JPanel panel) {
+        JFrame frame = new JFrame(title);
+        frame.setContentPane(panel);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        applyFixedWindowSize(frame);
+        frame.setVisible(true);
+    }
+
+    static void showLoginWindow(String title) {
+        JPanel panel = new AutomotiveServiceLogin().getMainPanel();
+        if (panel == null) {
+            JOptionPane.showMessageDialog(null, "Error: getMainPanel() returned null. Check AutomotiveServiceLogin.java!", "Null Panel Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        JFrame frame = new JFrame(title);
+        frame.setContentPane(panel);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.pack();
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+    }
+
     public static void main(String[] args){
         Theme.init();
-        SwingUtilities.invokeLater(() ->{
-            JFrame frame = new JFrame();
-            AutomotiveServiceLogin myForm = new AutomotiveServiceLogin();
-            frame.setContentPane(myForm.mainPanel);
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.pack();
-            frame.setLocationRelativeTo(null);
-            frame.setVisible(true);
-        });
-
+        SwingUtilities.invokeLater(() -> showLoginWindow(""));
     }
 }

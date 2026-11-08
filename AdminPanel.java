@@ -38,12 +38,7 @@ public class AdminPanel {
     private DefaultTableModel productMasterlistTable;
     private DefaultTableModel transactionRecordsTable;
     private DefaultTableModel billingRecordsTable;
-    private DefaultTableModel serviceManagement;
 
-
-    String prodName, prodCategory;
-    float prodPrice;
-    int prodStock;
 
     public JPanel getAdminPanel() {
         return adminPanel;
@@ -54,12 +49,11 @@ public class AdminPanel {
     public AdminPanel() {
 
         clientAppointmentListTable = sharedData.getAppointmentModel();
-        serviceManagement = sharedData.getAppointmentModel();
         productMasterlistTable = sharedData.getProductModel();
         transactionRecordsTable = sharedData.getTransactionModel();
         billingRecordsTable = sharedData.getBillModel();
 
-        tblServiceManagement.setModel(serviceManagement);
+        tblServiceManagement.setModel(clientAppointmentListTable);
         tblClientAppointmentMastList.setModel(clientAppointmentListTable);
         tblProdMasterList.setModel(productMasterlistTable);
         tblTransactionRecords.setModel(transactionRecordsTable);
@@ -119,7 +113,7 @@ public class AdminPanel {
                     return;
                 }
 
-                if (sharedData.getAppointmentStatus(appointmentID, "Approved")) {
+                if (sharedData.updateAppointmentStatus(appointmentID, "Approved")) {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment approved. The client can now pay the service bill.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -150,7 +144,7 @@ public class AdminPanel {
                     return;
                 }
 
-                if (sharedData.getAppointmentStatus(appointmentID, "Cancelled")) {
+                if (sharedData.updateAppointmentStatus(appointmentID, "Cancelled")) {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment cancelled. The client cannot pay this service bill.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -227,21 +221,8 @@ public class AdminPanel {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    JFrame loginFrame = new JFrame("Login");
                     SessionUser.logout();
-                    AutomotiveServiceLogin loginPanel = new AutomotiveServiceLogin();
-                    JPanel panel = loginPanel.getMainPanel();
-
-                    if (panel == null) {
-                        JOptionPane.showMessageDialog(null, "Error: getMainPanel() returned null. Check AutomotiveServiceLogin.java!", "Null Panel Error", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-
-                    loginFrame.setContentPane(panel);
-                    loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                    loginFrame.pack();
-                    loginFrame.setLocationRelativeTo(null);
-                    loginFrame.setVisible(true);
+                    AutomotiveServiceLogin.showLoginWindow("Login");
 
                     JFrame currentFrame = (JFrame) SwingUtilities.getWindowAncestor(adminPanel);
                     if (currentFrame != null) {
@@ -257,8 +238,21 @@ public class AdminPanel {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    prodName = txtProdName.getText().trim();
-                    prodCategory = txtProdCat.getText().trim();
+                    String prodName = txtProdName.getText().trim();
+                    String prodCategory = txtProdCat.getText().trim();
+
+                    if (prodName.isEmpty() || prodCategory.isEmpty()) {
+                        JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+
+                    float prodPrice = Float.parseFloat(txtProdPrice.getText().trim());
+                    int prodStock = Integer.parseInt(txtProdStock.getText().trim());
+
+                    if (prodPrice < 0 || prodStock < 0) {
+                        JOptionPane.showMessageDialog(adminPanel, "Price and stock cannot be negative.", "ERROR", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
 
                     for (int rowSearch = 0; rowSearch < productMasterlistTable.getRowCount(); rowSearch++) {
                         if (prodName.equalsIgnoreCase(productMasterlistTable.getValueAt(rowSearch, 1).toString())) {
@@ -267,22 +261,9 @@ public class AdminPanel {
                         }
                     }
 
-                    if (prodName.isEmpty() || prodCategory.isEmpty()) {
-                        JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
-                        return;
-                    }
-
-                    prodPrice = Float.parseFloat(txtProdPrice.getText().trim());
-                    prodStock = Integer.parseInt(txtProdStock.getText().trim());
-
-                    if (prodPrice < 0 || prodStock < 0) {
-                        JOptionPane.showMessageDialog(adminPanel, "Price and stock cannot be negative.", "ERROR", JOptionPane.WARNING_MESSAGE);
-                        return;
-                    }
-
-                    int prodID = sharedData.nextProductID();
-                    Object[] prodList = {prodID, prodName, prodCategory, prodPrice, prodStock};
-                    productMasterlistTable.addRow(prodList);
+                    productMasterlistTable.addRow(new Object[]{
+                            sharedData.nextProductID(), prodName, prodCategory, prodPrice, prodStock
+                    });
                 } catch (NumberFormatException ex) {
                     JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
                 }
@@ -301,13 +282,19 @@ public class AdminPanel {
                     }
 
                     selectedRow = tblProdMasterList.convertRowIndexToModel(selectedRow);
-                    prodName = txtProdName.getText().trim();
-                    prodCategory = txtProdCat.getText().trim();
-                    prodPrice = Float.parseFloat(txtProdPrice.getText().trim());
-                    prodStock = Integer.parseInt(txtProdStock.getText().trim());
+                    String prodName = txtProdName.getText().trim();
+                    String prodCategory = txtProdCat.getText().trim();
 
-                    if (prodName.isEmpty() || prodCategory.isEmpty() || prodPrice < 0 || prodStock < 0) {
+                    if (prodName.isEmpty() || prodCategory.isEmpty()) {
                         JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+
+                    float prodPrice = Float.parseFloat(txtProdPrice.getText().trim());
+                    int prodStock = Integer.parseInt(txtProdStock.getText().trim());
+
+                    if (prodPrice < 0 || prodStock < 0) {
+                        JOptionPane.showMessageDialog(adminPanel, "Price and stock cannot be negative.", "ERROR", JOptionPane.WARNING_MESSAGE);
                         return;
                     }
 
@@ -362,10 +349,12 @@ public class AdminPanel {
             public void actionPerformed(ActionEvent e) {
                 int selectedRow = tblServiceManagement.getSelectedRow();
 
-                if(selectedRow==-1){
+                if (selectedRow == -1) {
                     JOptionPane.showMessageDialog(adminPanel, "Please select an appointment to start", "ERROR", JOptionPane.WARNING_MESSAGE);
+                    return;
                 }
-                selectedRow = tblClientAppointmentMastList.convertRowIndexToModel(selectedRow);
+
+                selectedRow = tblServiceManagement.convertRowIndexToModel(selectedRow);
                 int appointmentID = Integer.parseInt(clientAppointmentListTable.getValueAt(selectedRow, 0).toString());
                 String currentAppointStatus = sharedData.getAppointmentStatus(appointmentID);
                 String currentServiceStatus = sharedData.getServiceStatus(appointmentID);
@@ -374,17 +363,19 @@ public class AdminPanel {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "ERROR", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
-                if (currentAppointStatus.equals("Cancelled")) {
+                if ("Cancelled".equals(currentAppointStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "This appointment was cancelled and cannot be started.", "ERROR", JOptionPane.ERROR_MESSAGE);
                     return;
-                }else if (currentAppointStatus.equals("Pending")) {
-                    JOptionPane.showMessageDialog(adminPanel, "This still has not been aproved by admin.", "ERROR", JOptionPane.WARNING_MESSAGE);
+                }
+                if ("Pending".equals(currentAppointStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "This appointment has not been approved by the admin yet.", "ERROR", JOptionPane.WARNING_MESSAGE);
                     return;
-                }else if (currentServiceStatus.equals("Completed")){
+                }
+                if ("Completed".equals(currentServiceStatus)) {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment is already completed.", "ERROR", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
-                if (sharedData.getServiceStatus(appointmentID, "In progress")) {
+                if (sharedData.updateServiceStatus(appointmentID, "In progress")) {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment has been started, waiting for completion of appointment.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -397,10 +388,12 @@ public class AdminPanel {
             public void actionPerformed(ActionEvent e) {
                 int selectedRow = tblServiceManagement.getSelectedRow();
 
-                if(selectedRow==-1){
-                    JOptionPane.showMessageDialog(adminPanel, "Please select an appointment to start", "ERROR", JOptionPane.WARNING_MESSAGE);
+                if (selectedRow == -1) {
+                    JOptionPane.showMessageDialog(adminPanel, "Please select an appointment to complete", "ERROR", JOptionPane.WARNING_MESSAGE);
+                    return;
                 }
-                selectedRow = tblClientAppointmentMastList.convertRowIndexToModel(selectedRow);
+
+                selectedRow = tblServiceManagement.convertRowIndexToModel(selectedRow);
                 int appointmentID = Integer.parseInt(clientAppointmentListTable.getValueAt(selectedRow, 0).toString());
                 String currentStatus = sharedData.getAppointmentStatus(appointmentID);
 
@@ -408,14 +401,15 @@ public class AdminPanel {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "ERROR", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
-                if (currentStatus.equals("Cancelled")) {
-                    JOptionPane.showMessageDialog(adminPanel, "This appointment was cancelled and cannot be started.", "ERROR", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }else if (currentStatus.equals("Pending")) {
-                    JOptionPane.showMessageDialog(adminPanel, "This still has not been aproved by admin.", "ERROR", JOptionPane.WARNING_MESSAGE);
+                if ("Cancelled".equals(currentStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "This appointment was cancelled and cannot be completed.", "ERROR", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
-                if (sharedData.getServiceStatus(appointmentID, "Completed")) {
+                if ("Pending".equals(currentStatus)) {
+                    JOptionPane.showMessageDialog(adminPanel, "This appointment has not been approved by the admin yet.", "ERROR", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                if (sharedData.updateServiceStatus(appointmentID, "Completed")) {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment Completed.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -445,7 +439,7 @@ public class AdminPanel {
                     return;
                 }
 
-                if (sharedData.getAppointmentStatus(appointmentID, "Cancelled")) {
+                if (sharedData.updateAppointmentStatus(appointmentID, "Cancelled")) {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment cancelled. The client cannot pay this service bill.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);

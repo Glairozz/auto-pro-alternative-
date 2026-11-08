@@ -24,19 +24,21 @@ public final class StoreAccounts {
     }
 
     public boolean validAdmin(String inputUser, String inputPass) {
-        for(int rowSearch = 0; rowSearch<admins.getRowCount(); rowSearch++){
-            if(inputUser.equals(admins.getValueAt(rowSearch,0))&&inputPass.equals(admins.getValueAt(rowSearch,1))) {
-                return true;
-            }
-        }
-        return false;
+        return validCredential(admins, inputUser, inputPass);
     }
+
     public boolean validClient(String inputUser, String inputPass) {
-        for(int rowSearch = 0; rowSearch<clients.getRowCount(); rowSearch++){
-            if(inputUser.equals(clients.getValueAt(rowSearch,0))&&inputPass.equals(clients.getValueAt(rowSearch,1))) {
+        return validCredential(clients, inputUser, inputPass);
+    }
+
+    private boolean validCredential(DefaultTableModel accounts, String inputUser, String inputPass) {
+        for (int row = 0; row < accounts.getRowCount(); row++) {
+            if (inputUser.equals(accounts.getValueAt(row, 0))
+                    && inputPass.equals(accounts.getValueAt(row, 1))) {
                 return true;
             }
         }
+
         return false;
     }
     public String  getClientName(String inputName)            {

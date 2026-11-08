@@ -66,33 +66,9 @@ public class newServiceForm {
         hideTableColumn(billingMyBillsTable, 8);
         hideTableColumn(billingTransacRecordTable, 6);
 
-        final String clientFilter = currentClientUsername;
-        TableRowSorter<DefaultTableModel> appointmentSorter = new TableRowSorter<>(appointmentModel);
-        appointmentSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
-            @Override
-            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
-                return clientFilter.equalsIgnoreCase(entry.getStringValue(9));
-            }
-        });
-        appointmentTable.setRowSorter(appointmentSorter);
-
-        TableRowSorter<DefaultTableModel> billSorter = new TableRowSorter<>(billModel);
-        billSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
-            @Override
-            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
-                return clientFilter.equalsIgnoreCase(entry.getStringValue(8));
-            }
-        });
-        billingMyBillsTable.setRowSorter(billSorter);
-
-        TableRowSorter<DefaultTableModel> transactionSorter = new TableRowSorter<>(transModel);
-        transactionSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
-            @Override
-            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
-                return clientFilter.equalsIgnoreCase(entry.getStringValue(6));
-            }
-        });
-        billingTransacRecordTable.setRowSorter(transactionSorter);
+        filterByClient(appointmentTable, appointmentModel, 9);
+        filterByClient(billingMyBillsTable, billModel, 8);
+        filterByClient(billingTransacRecordTable, transModel, 6);
 
         SpinnerDateModel dateModel = new SpinnerDateModel(new Date(), null, null, Calendar.DAY_OF_MONTH);
         appointmentDateSPN.setModel(dateModel);
@@ -172,29 +148,24 @@ public class newServiceForm {
         appointmentSubmitAppBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String serviceName = repairServicesRadioButton.isSelected() ? "Repair Services" : "Installation Services";
                 String vehicle = appointmentVehicleTXT.getText().trim();
                 String problem = (String) appointmentProblemCMB.getSelectedItem();
                 String time = appointmentTimeSPN.getValue().toString();
 
-                if (serviceName == null || problem == null || vehicle.isEmpty()) {
+                if (problem == null || vehicle.isEmpty()) {
                     JOptionPane.showMessageDialog(servicesPanel, "Please complete all appointment details.", "Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
-                AutomotiveService service;
-                if (serviceName.equals("Repair Services")) {
-                    service = new RepairService();
-                } else if (serviceName.equals("Installation Services")) {
-                    service = new InstallationService();
-                } else {
-                    JOptionPane.showMessageDialog(servicesPanel, "Please select a valid service.", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
+                AutomotiveService service = repairServicesRadioButton.isSelected()
+                        ? new RepairService()
+                        : new InstallationService();
+                String serviceName = service.getServiceName();
 
                 AppointmentDetails appointment = new AppointmentDetails(service, vehicle, problem);
-                if (!appointment.validateServiceRequest().equals("Valid Appointment")) {
-                    JOptionPane.showMessageDialog(servicesPanel, appointment.validateServiceRequest(), "Error", JOptionPane.ERROR_MESSAGE);
+                String validation = appointment.validateServiceRequest();
+                if (!validation.equals("Valid Appointment")) {
+                    JOptionPane.showMessageDialog(servicesPanel, validation, "Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
@@ -219,9 +190,6 @@ public class newServiceForm {
 
                 sharedData.linkServiceBill(billID, appointmentID);
 
-                double balance = calculateOutstandingBalance();
-
-                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
                 updateBillingReviewText();
                 JOptionPane.showMessageDialog(servicesPanel, "Appointment submitted successfully!\nPlease wait for admin approval before payment.");
             }
@@ -249,11 +217,10 @@ public class newServiceForm {
                 String name = productModel.getValueAt(selectedRow, 1).toString();
                 double price = Double.parseDouble(productModel.getValueAt(selectedRow, 3).toString());
 
-                OrderCalculator calculator = new OrderCalculator();
-                calculator.computeOrder(price, quantity);
-                cartModel.addRow(new Object[]{id, name, quantity, String.format("%.2f", calculator.getTotalAmount())});
+                double subtotal = price * quantity;
+                cartModel.addRow(new Object[]{id, name, quantity, String.format("%.2f", subtotal)});
                 productModel.setValueAt(stock - quantity, selectedRow, 4);
-                productTotalTXT.setText(String.format("₱%.2f", calculator.calculateCartTotal(cartModel)));
+                productTotalTXT.setText(String.format("₱%.2f", OrderCalculator.calculateCartTotal(cartModel)));
                 productQuantitySPN.setValue(1);
             }
         });
@@ -280,8 +247,7 @@ public class newServiceForm {
                 }
 
                 cartModel.removeRow(selectedRow);
-                OrderCalculator calculator = new OrderCalculator();
-                productTotalTXT.setText(String.format("₱%.2f", calculator.calculateCartTotal(cartModel)));
+                productTotalTXT.setText(String.format("₱%.2f", OrderCalculator.calculateCartTotal(cartModel)));
             }
         });
 
@@ -293,8 +259,7 @@ public class newServiceForm {
                     return;
                 }
 
-                OrderCalculator calculator = new OrderCalculator();
-                double total = calculator.calculateCartTotal(cartModel);
+                double total = OrderCalculator.calculateCartTotal(cartModel);
                 int billID = sharedData.nextBillID();
 
                 StringBuilder productDetails = new StringBuilder("Product Order: ");
@@ -330,9 +295,6 @@ public class newServiceForm {
                 cartModel.setRowCount(0);
                 productTotalTXT.setText("₱0.00");
 
-                double balance = calculateOutstandingBalance();
-
-                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
                 updateBillingReviewText();
                 JOptionPane.showMessageDialog(servicesPanel, "Product order confirmed!\nYou can pay for this product order immediately.");
             }
@@ -441,18 +403,18 @@ public class newServiceForm {
                 int choice = JOptionPane.showConfirmDialog(servicesPanel, paymentPanel, "Payment", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
 
                 if (choice == JOptionPane.OK_OPTION) {
-                    OrderCalculator calculator = new OrderCalculator();
                     String selectedMethod = paymentMethodCMB.getSelectedItem().toString();
 
-                    if (!calculator.validatePayment(selectedMethod, cardNameTXT.getText(), cardNumberTXT.getText())) {
-                        if (selectedMethod.equals("Debit") || selectedMethod.equals("Credit")) {
-                            if (cardNameTXT.getText().trim().isEmpty() || cardNumberTXT.getText().trim().isEmpty()) {
-                                JOptionPane.showMessageDialog(servicesPanel, "Please enter the cardholder name and card number.");
-                            } else {
-                                JOptionPane.showMessageDialog(servicesPanel, "Please enter a valid card number.");
-                            }
+                    boolean cardPayment = selectedMethod.equals("Debit") || selectedMethod.equals("Credit");
+                    if (cardPayment) {
+                        if (cardNameTXT.getText().trim().isEmpty() || cardNumberTXT.getText().trim().isEmpty()) {
+                            JOptionPane.showMessageDialog(servicesPanel, "Please enter the cardholder name and card number.");
+                            return;
                         }
-                        return;
+                        if (!cardNumberTXT.getText().trim().matches("\\d{12,19}")) {
+                            JOptionPane.showMessageDialog(servicesPanel, "Please enter a valid card number.");
+                            return;
+                        }
                     }
 
                     if (selectedMethod.equals("Debit")) {
@@ -467,9 +429,6 @@ public class newServiceForm {
                     String paymentDate = new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date());
                     transModel.addRow(new Object[]{receiptID, billNumber, clientName, amount, selectedMethod, paymentDate, currentClientUsername});
 
-                    double balance = calculateOutstandingBalance();
-
-                    billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
                     updateBillingReviewText();
 
                     JOptionPane.showMessageDialog(
@@ -584,23 +543,16 @@ public class newServiceForm {
             }
         });
 
-        billingMyBillsTable.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+        ListSelectionListener reviewListener = new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent e) {
                 if (!e.getValueIsAdjusting()) {
                     updateBillingReviewText();
                 }
             }
-        });
-
-        billingTransacRecordTable.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
-            @Override
-            public void valueChanged(ListSelectionEvent e) {
-                if (!e.getValueIsAdjusting()) {
-                    updateBillingReviewText();
-                }
-            }
-        });
+        };
+        billingMyBillsTable.getSelectionModel().addListSelectionListener(reviewListener);
+        billingTransacRecordTable.getSelectionModel().addListSelectionListener(reviewListener);
 
         updateBillingReviewText();
 
@@ -612,13 +564,8 @@ public class newServiceForm {
                 if (choice == JOptionPane.YES_OPTION) {
                     JFrame servicesFrame = (JFrame) SwingUtilities.getWindowAncestor(servicesPanel);
                     SessionUser.logout();
-                    AutomotiveServiceLogin login = new AutomotiveServiceLogin();
-                    JFrame loginFrame = new JFrame("AutoCare Pro - Login");
-                    loginFrame.setContentPane(login.getMainPanel());
-                    loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                    loginFrame.pack();
-                    loginFrame.setLocationRelativeTo(null);
-                    loginFrame.setVisible(true);
+                    AutomotiveServiceLogin.showLoginWindow("AutoCare Pro - Login");
+
                     if (servicesFrame != null) {
                         servicesFrame.dispose();
                     }
@@ -632,11 +579,12 @@ public class newServiceForm {
             return;
         }
 
+        double balance = calculateOutstandingBalance();
         StringBuilder text = new StringBuilder("BILLING REVIEW\n");
         text.append("========================================\n");
         text.append("Client: ").append(currentClientName).append("\n");
         text.append("Username: ").append(currentClientUsername).append("\n");
-        text.append("Outstanding Balance: ").append(String.format("₱%.2f", calculateOutstandingBalance())).append("\n\n");
+        text.append("Outstanding Balance: ").append(String.format("₱%.2f", balance)).append("\n\n");
 
         int billRow = billingMyBillsTable.getSelectedRow();
         if (billRow >= 0) {
@@ -704,6 +652,7 @@ public class newServiceForm {
             }
         }
 
+        billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
         billingTXTArea.setText(text.toString());
         billingTXTArea.setCaretPosition(0);
     }
@@ -730,6 +679,18 @@ public class newServiceForm {
         if (viewColumn >= 0) {
             table.removeColumn(table.getColumnModel().getColumn(viewColumn));
         }
+    }
+
+    private void filterByClient(JTable table, DefaultTableModel model, int clientColumn) {
+        final String client = currentClientUsername;
+        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(model);
+        sorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
+            @Override
+            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+                return client.equalsIgnoreCase(entry.getStringValue(clientColumn));
+            }
+        });
+        table.setRowSorter(sorter);
     }
 
 }

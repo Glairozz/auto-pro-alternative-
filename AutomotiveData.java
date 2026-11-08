@@ -144,77 +144,56 @@ public class AutomotiveData {
     }
 
     public String getServiceStatus(int appointmentID) {
-        for(int i = 0; i <appointmentModel.getRowCount(); i++){
-            int currentID = Integer.parseInt(appointmentModel.getValueAt(i, 0).toString());
-            if (currentID == appointmentID) {
-                return appointmentModel.getValueAt(i, 7).toString();
-            }
-        }
-        return null;
+        int row = findAppointmentRow(appointmentID);
+        return row < 0 ? null : appointmentModel.getValueAt(row, 7).toString();
     }
 
     public String getAppointmentStatus(int appointmentID) {
-        for (int i = 0; i < appointmentModel.getRowCount(); i++) {
-            int currentID = Integer.parseInt(appointmentModel.getValueAt(i, 0).toString());
-            if (currentID == appointmentID) {
-                return appointmentModel.getValueAt(i, 6).toString();
-            }
-        }
-        return null;
+        int row = findAppointmentRow(appointmentID);
+        return row < 0 ? null : appointmentModel.getValueAt(row, 6).toString();
     }
 
-
-    public boolean getServiceStatus(int appointmentID, String status){
-        boolean found = false;
-        for(int i=0; i< appointmentModel.getRowCount(); i++){
-            int currentID = Integer.parseInt(appointmentModel.getValueAt(i, 0).toString());
-            if(currentID == appointmentID){
-                appointmentModel.setValueAt(status, i, 7);
-                found = true;
-                break;
-            }
+    public boolean updateServiceStatus(int appointmentID, String status) {
+        int row = findAppointmentRow(appointmentID);
+        if (row < 0) {
+            return false;
         }
-        return found;
+
+        appointmentModel.setValueAt(status, row, 7);
+        return true;
     }
 
-    public boolean getAppointmentStatus(int appointmentID, String status) {
-        boolean found = false;
-
-        for (int i = 0; i < appointmentModel.getRowCount(); i++) {
-
-            int currentID = Integer.parseInt(appointmentModel.getValueAt(i, 0).toString());
-
-            if (currentID == appointmentID) {
-                appointmentModel.setValueAt(status, i, 6);
-                found = true;
-                break;
-            }
+    public boolean updateAppointmentStatus(int appointmentID, String status) {
+        int row = findAppointmentRow(appointmentID);
+        if (row < 0) {
+            return false;
         }
 
-        if (found) {
-            for (int i = 0; i < billModel.getRowCount(); i++) {
+        appointmentModel.setValueAt(status, row, 6);
 
-                if ("Service".equals(
-                        billModel.getValueAt(i, 2).toString()
-                )) {
+        for (int i = 0; i < billModel.getRowCount(); i++) {
+            if ("Service".equals(billModel.getValueAt(i, 2).toString())) {
+                int billID = Integer.parseInt(billModel.getValueAt(i, 0).toString());
+                Integer linkedID = serviceBillAppointmentIDs.get(billID);
 
-                    int billID = Integer.parseInt(
-                            billModel.getValueAt(i, 0).toString()
-                    );
-
-                    Integer linkedAppointmentID =
-                            serviceBillAppointmentIDs.get(billID);
-
-                    if (linkedAppointmentID != null
-                            && linkedAppointmentID == appointmentID) {
-
-                        billModel.setValueAt(status, i, 5);
-                    }
+                if (linkedID != null && linkedID == appointmentID) {
+                    billModel.setValueAt(status, i, 5);
                 }
             }
         }
 
-        return found;
+        return true;
+    }
+
+    private int findAppointmentRow(int appointmentID) {
+        for (int i = 0; i < appointmentModel.getRowCount(); i++) {
+            int currentID = Integer.parseInt(appointmentModel.getValueAt(i, 0).toString());
+            if (currentID == appointmentID) {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private String normalizeUsername(String username) {
