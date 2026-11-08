@@ -107,6 +107,7 @@ public class AutomotiveServiceLogin {
     }
 
     public static void main(String[] args){
+        Theme.init();
         SwingUtilities.invokeLater(() ->{
             JFrame frame = new JFrame();
             AutomotiveServiceLogin myForm = new AutomotiveServiceLogin();
