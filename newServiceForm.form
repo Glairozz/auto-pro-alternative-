@@ -1,545 +1,689 @@
-import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableRowSorter;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Date;
-
-public class newServiceForm {
-    private DefaultTableModel appointmentModel;
-    private DefaultTableModel productModel;
-    private DefaultTableModel cartModel;
-    private DefaultTableModel billModel;
-    private DefaultTableModel transModel;
-
-    private JTabbedPane tabbedPane1;
-    private JPanel servicesPanel;
-    private JButton billingLogOutBT;
-    private JTextField appointmentVehicleTXT;
-    private JComboBox appointmentServiceCMB;
-    private JComboBox appointmentProblemCMB;
-    private JSpinner appointmentDateSPN;
-    private JSpinner appointmentTimeSPN;
-    private JButton appointmentSubmitAppBT;
-    private JTable appointmentTable;
-    private JSpinner productQuantitySPN;
-    private JButton productAddToCartBT;
-    private JTable productProductTable;
-    private JTable table3;
-    private JButton productRemoveBT;
-    private JTextField productTotalTXT;
-    private JButton productConfirmProdOrderBT;
-    private JTable billingMyBillsTable;
-    private JTextField billingOutstandingBalanceTXT;
-    private JButton billingReviewBillBT;
-    private JTable billingTransacRecordTable;
-    private JButton billingViewRecieptBT;
-    private JScrollPane pane3;
-    private JScrollPane pane2;
-
-    private final AutomotiveData sharedData = AutomotiveData.getInstance();
-    private final String currentClientUsername = SessionUser.getUsername();
-    private final String currentClientName = SessionUser.getDisplayName();
-
-
-    public newServiceForm() {
-        appointmentModel = sharedData.getAppointmentModel();
-        productModel = sharedData.getProductModel();
-        cartModel = sharedData.getCartModel(currentClientUsername);
-        billModel = sharedData.getBillModel();
-        transModel = sharedData.getTransactionModel();
-
-        appointmentTable.setModel(appointmentModel);
-        productProductTable.setModel(productModel);
-        table3.setModel(cartModel);
-        billingMyBillsTable.setModel(billModel);
-        billingTransacRecordTable.setModel(transModel);
-        hideTableColumn(appointmentTable, 9);
-        hideTableColumn(billingMyBillsTable, 8);
-        hideTableColumn(billingTransacRecordTable, 6);
-
-        final String clientFilter = currentClientUsername;
-        TableRowSorter<DefaultTableModel> appointmentSorter = new TableRowSorter<>(appointmentModel);
-        appointmentSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
-            @Override
-            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
-                return clientFilter.equalsIgnoreCase(entry.getStringValue(9));
-            }
-        });
-        appointmentTable.setRowSorter(appointmentSorter);
-
-        TableRowSorter<DefaultTableModel> billSorter = new TableRowSorter<>(billModel);
-        billSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
-            @Override
-            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
-                return clientFilter.equalsIgnoreCase(entry.getStringValue(8));
-            }
-        });
-        billingMyBillsTable.setRowSorter(billSorter);
-
-        TableRowSorter<DefaultTableModel> transactionSorter = new TableRowSorter<>(transModel);
-        transactionSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
-            @Override
-            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
-                return clientFilter.equalsIgnoreCase(entry.getStringValue(6));
-            }
-        });
-        billingTransacRecordTable.setRowSorter(transactionSorter);
-
-        SpinnerDateModel dateModel = new SpinnerDateModel(new Date(), null, null, Calendar.DAY_OF_MONTH);
-        appointmentDateSPN.setModel(dateModel);
-        appointmentDateSPN.setEditor(new JSpinner.DateEditor(appointmentDateSPN, "dd/MM/yyyy"));
-
-        productQuantitySPN.setModel(new SpinnerNumberModel(1, 1, 100, 1));
-        productTotalTXT.setText("₱0.00");
-        productTotalTXT.setEditable(false);
-        billingOutstandingBalanceTXT.setEditable(false);
-
-        appointmentTimeSPN.setModel(new AbstractSpinnerModel() {
-            private int currentMinutes = (8 * 60) + 30;
-
-            @Override
-            public Object getValue() {
-                return String.format("%02d:%02d", currentMinutes / 60, currentMinutes % 60);
-            }
-
-            @Override
-            public void setValue(Object value) {
-                if (value instanceof String) {
-                    String[] timeParts = value.toString().split(":");
-                    if (timeParts.length == 2) {
-                        int hour = Integer.parseInt(timeParts[0]);
-                        int minute = Integer.parseInt(timeParts[1]);
-                        if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
-                            currentMinutes = (hour * 60) + minute;
-                            fireStateChanged();
-                        }
-                    }
-                }
-            }
-
-            @Override
-            public Object getNextValue() {
-                int nextMinutes = (currentMinutes + 30) % 1440;
-                return String.format("%02d:%02d", nextMinutes / 60, nextMinutes % 60);
-            }
-
-            @Override
-            public Object getPreviousValue() {
-                int previousMinutes = (currentMinutes - 30 + 1440) % 1440;
-                return String.format("%02d:%02d", previousMinutes / 60, previousMinutes % 60);
-            }
-        });
-
-        appointmentTimeSPN.setEditor(new JSpinner.DefaultEditor(appointmentTimeSPN));
-        ((JSpinner.DefaultEditor) appointmentTimeSPN.getEditor()).getTextField().setEditable(false);
-
-        appointmentServiceCMB.setModel(new DefaultComboBoxModel<String>(new String[]{"Repair Services", "Installation Services"}));
-
-        appointmentServiceCMB.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String selectedService = (String) appointmentServiceCMB.getSelectedItem();
-
-                if (selectedService == null) {
-                    appointmentProblemCMB.setModel(new DefaultComboBoxModel<String>());
-                } else if (selectedService.equals("Repair Services")) {
-                    RepairService repairService = new RepairService();
-                    appointmentProblemCMB.setModel(new DefaultComboBoxModel<String>(repairService.getServiceDetails()));
-                } else if (selectedService.equals("Installation Services")) {
-                    InstallationService installationService = new InstallationService();
-                    appointmentProblemCMB.setModel(new DefaultComboBoxModel<String>(installationService.getServiceDetails()));
-                } else {
-                    appointmentProblemCMB.setModel(new DefaultComboBoxModel<String>());
-                }
-            }
-        });
-
-        if (appointmentServiceCMB.getSelectedItem() != null) {
-            if (appointmentServiceCMB.getSelectedItem().equals("Repair Services")) {
-                RepairService repairService = new RepairService();
-                appointmentProblemCMB.setModel(new DefaultComboBoxModel<String>(repairService.getServiceDetails()));
-            } else if (appointmentServiceCMB.getSelectedItem().equals("Installation Services")) {
-                InstallationService installationService = new InstallationService();
-                appointmentProblemCMB.setModel(new DefaultComboBoxModel<String>(installationService.getServiceDetails()));
-            }
-        }
-
-        appointmentSubmitAppBT.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String serviceName = (String) appointmentServiceCMB.getSelectedItem();
-                String vehicle = appointmentVehicleTXT.getText().trim();
-                String problem = (String) appointmentProblemCMB.getSelectedItem();
-                String time = appointmentTimeSPN.getValue().toString();
-
-                if (serviceName == null || problem == null || vehicle.isEmpty()) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Please complete all appointment details.", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                AutomotiveService service;
-                if (serviceName.equals("Repair Services")) {
-                    service = new RepairService();
-                } else if (serviceName.equals("Installation Services")) {
-                    service = new InstallationService();
-                } else {
-                    JOptionPane.showMessageDialog(servicesPanel, "Please select a valid service.", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                AppointmentDetails appointment = new AppointmentDetails(service, vehicle, problem);
-                if (!appointment.validateServiceRequest().equals("Valid Appointment")) {
-                    JOptionPane.showMessageDialog(servicesPanel, appointment.validateServiceRequest(), "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                String date = new SimpleDateFormat("dd/MM/yyyy").format((Date) appointmentDateSPN.getValue());
-                String schedule = date + " " + time;
-                double estimate = appointment.getEstimatedPrice();
-                int appointmentID = sharedData.nextAppointmentID();
-
-                appointmentModel.addRow(new Object[]{
-                        appointmentID, currentClientName, appointment.getServiceName(), appointment.getVehicleInfo(),
-                        appointment.getServiceDetail(), schedule, "Pending", "Not Started", String.format("₱%.2f", estimate), currentClientUsername
-                });
-
-                int billID = sharedData.nextBillID();
-                String amount = String.format("₱%.2f", estimate);
-                String billDate = new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date());
-
-                billModel.addRow(new Object[]{
-                        billID, currentClientName, "Service", serviceName + " - " + problem + " (" + vehicle + ")",
-                        amount, "Pending", "Unpaid", billDate, currentClientUsername
-                });
-
-                sharedData.linkServiceBill(billID, appointmentID);
-
-                double balance = 0;
-                for (int i = 0; i < billModel.getRowCount(); i++) {
-                    if (billModel.getValueAt(i, 8).toString().equalsIgnoreCase(currentClientUsername)
-                            && billModel.getValueAt(i, 6).toString().equals("Unpaid")) {
-                        String billAmount = billModel.getValueAt(i, 4).toString().replace("₱", "").replace(",", "");
-                        balance += Double.parseDouble(billAmount);
-                    }
-                }
-
-                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
-                JOptionPane.showMessageDialog(servicesPanel, "Appointment submitted successfully!\nPlease wait for admin approval before payment.");
-            }
-        });
-
-        productAddToCartBT.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int selectedRow = productProductTable.getSelectedRow();
-                if (selectedRow == -1) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Select a product first.");
-                    return;
-                }
-
-                selectedRow = productProductTable.convertRowIndexToModel(selectedRow);
-                int quantity = (Integer) productQuantitySPN.getValue();
-                int stock = Integer.parseInt(productModel.getValueAt(selectedRow, 4).toString());
-
-                if (quantity > stock) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Not enough stock available.");
-                    return;
-                }
-
-                String id = productModel.getValueAt(selectedRow, 0).toString();
-                String name = productModel.getValueAt(selectedRow, 1).toString();
-                double price = Double.parseDouble(productModel.getValueAt(selectedRow, 3).toString());
-
-                OrderCalculator calculator = new OrderCalculator();
-                calculator.computeOrder(price, quantity);
-                cartModel.addRow(new Object[]{id, name, quantity, String.format("%.2f", calculator.getTotalAmount())});
-                productModel.setValueAt(stock - quantity, selectedRow, 4);
-                productTotalTXT.setText(String.format("₱%.2f", calculator.calculateCartTotal(cartModel)));
-                productQuantitySPN.setValue(1);
-            }
-        });
-
-        productRemoveBT.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int selectedRow = table3.getSelectedRow();
-                if (selectedRow == -1) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Select an item in the cart.");
-                    return;
-                }
-
-                selectedRow = table3.convertRowIndexToModel(selectedRow);
-                String id = cartModel.getValueAt(selectedRow, 0).toString();
-                int quantity = Integer.parseInt(cartModel.getValueAt(selectedRow, 2).toString());
-
-                for (int i = 0; i < productModel.getRowCount(); i++) {
-                    if (productModel.getValueAt(i, 0).toString().equals(id)) {
-                        int stock = Integer.parseInt(productModel.getValueAt(i, 4).toString());
-                        productModel.setValueAt(stock + quantity, i, 4);
-                        break;
-                    }
-                }
-
-                cartModel.removeRow(selectedRow);
-                OrderCalculator calculator = new OrderCalculator();
-                productTotalTXT.setText(String.format("₱%.2f", calculator.calculateCartTotal(cartModel)));
-            }
-        });
-
-        productConfirmProdOrderBT.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (cartModel.getRowCount() == 0) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Your cart is empty.");
-                    return;
-                }
-
-                OrderCalculator calculator = new OrderCalculator();
-                double total = calculator.calculateCartTotal(cartModel);
-                int billID = sharedData.nextBillID();
-
-                billModel.addRow(new Object[]{
-                        billID, currentClientName, "Product", "Product Order", String.format("₱%.2f", total),
-                        "Not Required", "Unpaid", new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date()), currentClientUsername
-                });
-
-                cartModel.setRowCount(0);
-                productTotalTXT.setText("₱0.00");
-
-                double balance = 0;
-                for (int i = 0; i < billModel.getRowCount(); i++) {
-                    if (billModel.getValueAt(i, 8).toString().equalsIgnoreCase(currentClientUsername)
-                            && billModel.getValueAt(i, 6).toString().equals("Unpaid")) {
-                        String amount = billModel.getValueAt(i, 4).toString().replace("₱", "").replace(",", "");
-                        balance += Double.parseDouble(amount);
-                    }
-                }
-
-                billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
-                JOptionPane.showMessageDialog(servicesPanel, "Product order confirmed!\nYou can pay for this product order immediately.");
-            }
-        });
-
-        billingReviewBillBT.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int selectedRow = billingMyBillsTable.getSelectedRow();
-                if (selectedRow == -1) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Select a bill first.");
-                    return;
-                }
-
-                selectedRow = billingMyBillsTable.convertRowIndexToModel(selectedRow);
-                int billNumber = Integer.parseInt(billModel.getValueAt(selectedRow, 0).toString());
-                String clientName = billModel.getValueAt(selectedRow, 1).toString();
-                String billType = billModel.getValueAt(selectedRow, 2).toString();
-                String description = billModel.getValueAt(selectedRow, 3).toString();
-                String amount = billModel.getValueAt(selectedRow, 4).toString();
-                String approvalStatus = billModel.getValueAt(selectedRow, 5).toString();
-                String paymentStatus = billModel.getValueAt(selectedRow, 6).toString();
-
-                if (!billModel.getValueAt(selectedRow, 8).toString().equalsIgnoreCase(currentClientUsername)) {
-                    JOptionPane.showMessageDialog(servicesPanel, "You can only pay your own bills.");
-                    return;
-                }
-
-                if (paymentStatus.equals("Paid")) {
-                    JOptionPane.showMessageDialog(servicesPanel, "This bill has already been paid.");
-                    return;
-                }
-
-                if (billType.equals("Service")) {
-                    Integer appointmentID = sharedData.getAppointmentIDForBill(billNumber);
-                    String currentStatus = appointmentID == null ? null : sharedData.getAppointmentStatus(appointmentID);
-
-
-                    if (currentStatus == null) {
-                        JOptionPane.showMessageDialog(servicesPanel, "The appointment record could not be found.");
-                        return;
-                    }
-
-                    approvalStatus = currentStatus;
-                    billModel.setValueAt(approvalStatus, selectedRow, 5);
-
-
-                    if (!approvalStatus.equals("Approved")) {
-                        JOptionPane.showMessageDialog(
-                                servicesPanel,
-                                "Payment is not available yet.\n\nYour service appointment must be approved by the admin first.\nCurrent Approval Status: " + approvalStatus,
-                                "Admin Approval Required",
-                                JOptionPane.WARNING_MESSAGE
-                        );
-                        return;
-                    }
-
-                    String serviceStatus = sharedData.getServiceStatus(appointmentID);
-                    if (serviceStatus == null || !serviceStatus.equals("Completed")) {
-                        JOptionPane.showMessageDialog(
-                                servicesPanel,
-                                "Payment is not available yet.\n\nYour service must be completed before you can pay.\nCurrent Service Status: " + serviceStatus,
-                                "Service Not Completed",
-                                JOptionPane.WARNING_MESSAGE
-                        );
-                        return;
-                    }
-                } else if (!billType.equals("Product")) {
-                    JOptionPane.showMessageDialog(servicesPanel, "This bill type cannot be paid.");
-                    return;
-                }
-
-                JComboBox<String> paymentMethodCMB = new JComboBox<>(new String[]{"Cash", "Debit", "Credit"});
-                JTextField cardNameTXT = new JTextField();
-                JTextField cardNumberTXT = new JTextField();
-                JPanel paymentPanel = new JPanel(new java.awt.GridLayout(4, 2, 8, 8));
-
-                paymentPanel.add(new JLabel("Payment Amount:"));
-                paymentPanel.add(new JLabel(amount));
-                paymentPanel.add(new JLabel("Payment Method:"));
-                paymentPanel.add(paymentMethodCMB);
-                paymentPanel.add(new JLabel("Cardholder Name:"));
-                paymentPanel.add(cardNameTXT);
-                paymentPanel.add(new JLabel("Card Number:"));
-                paymentPanel.add(cardNumberTXT);
-
-                paymentMethodCMB.addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        String method = paymentMethodCMB.getSelectedItem().toString();
-                        boolean cardPayment = method.equals("Debit") || method.equals("Credit");
-                        cardNameTXT.setEnabled(cardPayment);
-                        cardNumberTXT.setEnabled(cardPayment);
-
-                        if (!cardPayment) {
-                            cardNameTXT.setText("");
-                            cardNumberTXT.setText("");
-                        }
-                    }
-                });
-
-                cardNameTXT.setEnabled(false);
-                cardNumberTXT.setEnabled(false);
-
-                int choice = JOptionPane.showConfirmDialog(servicesPanel, paymentPanel, "Payment", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-
-                if (choice == JOptionPane.OK_OPTION) {
-                    OrderCalculator calculator = new OrderCalculator();
-                    String selectedMethod = paymentMethodCMB.getSelectedItem().toString();
-
-                    if (!calculator.validatePayment(selectedMethod, cardNameTXT.getText(), cardNumberTXT.getText())) {
-                        if (selectedMethod.equals("Debit") || selectedMethod.equals("Credit")) {
-                            if (cardNameTXT.getText().trim().isEmpty() || cardNumberTXT.getText().trim().isEmpty()) {
-                                JOptionPane.showMessageDialog(servicesPanel, "Please enter the cardholder name and card number.");
-                            } else {
-                                JOptionPane.showMessageDialog(servicesPanel, "Please enter a valid card number.");
-                            }
-                        }
-                        return;
-                    }
-
-                    if (selectedMethod.equals("Debit")) {
-                        selectedMethod = "Debit Card";
-                    } else if (selectedMethod.equals("Credit")) {
-                        selectedMethod = "Credit Card";
-                    }
-
-                    billModel.setValueAt("Paid", selectedRow, 6);
-
-                    int receiptID = sharedData.nextReceiptID();
-                    String paymentDate = new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date());
-                    transModel.addRow(new Object[]{receiptID, billNumber, clientName, amount, selectedMethod, paymentDate, currentClientUsername});
-
-                    double balance = 0;
-                    for (int i = 0; i < billModel.getRowCount(); i++) {
-                        if (billModel.getValueAt(i, 8).toString().equalsIgnoreCase(currentClientUsername)
-                                && billModel.getValueAt(i, 6).toString().equals("Unpaid")) {
-                            String unpaidAmount = billModel.getValueAt(i, 4).toString().replace("₱", "").replace(",", "");
-                            balance += Double.parseDouble(unpaidAmount);
-                        }
-                    }
-
-                    billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
-
-                    JOptionPane.showMessageDialog(
-                            servicesPanel,
-                            "PAYMENT RECEIPT\n\n"
-                                    + "Receipt #: " + receiptID
-                                    + "\nBill #: " + billNumber
-                                    + "\nClient: " + clientName
-                                    + "\nBill Type: " + billType
-                                    + "\nDescription: " + description
-                                    + "\nApproval Status: " + approvalStatus
-                                    + "\nPayment Status: Paid"
-                                    + "\nAmount Paid: " + amount
-                                    + "\nPayment Method: " + selectedMethod
-                                    + "\nPayment Date: " + paymentDate
-                                    + "\n\nPayment successful!",
-                            "Payment Receipt",
-                            JOptionPane.INFORMATION_MESSAGE
-                    );
-                }
-            }
-        });
-
-        billingViewRecieptBT.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int selectedRow = billingTransacRecordTable.getSelectedRow();
-                if (selectedRow == -1) {
-                    JOptionPane.showMessageDialog(servicesPanel, "Select a transaction first.");
-                    return;
-                }
-
-                selectedRow = billingTransacRecordTable.convertRowIndexToModel(selectedRow);
-                JOptionPane.showMessageDialog(
-                        servicesPanel,
-                        "RECEIPT\n"
-                                + "Receipt #: " + transModel.getValueAt(selectedRow, 0)
-                                + "\nBill #: " + transModel.getValueAt(selectedRow, 1)
-                                + "\nClient: " + transModel.getValueAt(selectedRow, 2)
-                                + "\nAmount: " + transModel.getValueAt(selectedRow, 3)
-                                + "\nMethod: " + transModel.getValueAt(selectedRow, 4)
-                                + "\nDate: " + transModel.getValueAt(selectedRow, 5),
-                        "Receipt",
-                        JOptionPane.INFORMATION_MESSAGE
-                );
-            }
-        });
-
-        billingLogOutBT.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int choice = JOptionPane.showConfirmDialog(servicesPanel, "Are you sure you want to log out?", "Confirm Logout", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-
-                if (choice == JOptionPane.YES_OPTION) {
-                    JFrame servicesFrame = (JFrame) SwingUtilities.getWindowAncestor(servicesPanel);
-                    SessionUser.logout();
-                    AutomotiveServiceLogin login = new AutomotiveServiceLogin();
-                    JFrame loginFrame = new JFrame("AutoCare Pro - Login");
-                    loginFrame.setContentPane(login.getMainPanel());
-                    loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                    loginFrame.pack();
-                    loginFrame.setLocationRelativeTo(null);
-                    loginFrame.setVisible(true);
-                    if (servicesFrame != null) {
-                        servicesFrame.dispose();
-                    }
-                }
-            }
-        });
-    }
-
-    public JPanel getServicesPanel() {
-        return servicesPanel;
-    }
-
-    private void hideTableColumn(JTable table, int modelColumn) {
-        int viewColumn = table.convertColumnIndexToView(modelColumn);
-        if (viewColumn >= 0) {
-            table.removeColumn(table.getColumnModel().getColumn(viewColumn));
-        }
-    }
-
-}
+<?xml version="1.0" encoding="UTF-8"?>
+<form xmlns="http://www.intellij.com/uidesigner/form/" version="1" bind-to-class="newServiceForm">
+  <grid id="4e9da" binding="servicesPanel" layout-manager="GridLayoutManager" row-count="2" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="0" vgap="0">
+    <margin top="0" left="0" bottom="0" right="0"/>
+    <constraints>
+      <xy x="20" y="20" width="1000" height="720"/>
+    </constraints>
+    <properties>
+      <background color="-788741"/>
+    </properties>
+    <border type="none"/>
+    <children>
+      <grid id="7658d" layout-manager="GridLayoutManager" row-count="1" column-count="5" same-size-horizontally="false" same-size-vertically="false" hgap="16" vgap="16">
+        <margin top="14" left="24" bottom="14" right="24"/>
+        <constraints>
+          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="7" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+        </constraints>
+        <properties>
+          <background color="-16045232"/>
+        </properties>
+        <border type="none"/>
+        <children>
+          <component id="dbc63" class="javax.swing.JLabel">
+            <constraints>
+              <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+            </constraints>
+            <properties>
+              <font size="22" style="1"/>
+              <foreground color="-1"/>
+              <text value="AutoCare"/>
+            </properties>
+          </component>
+          <component id="25239" class="javax.swing.JLabel">
+            <constraints>
+              <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+            </constraints>
+            <properties>
+              <font size="12" style="1"/>
+              <foreground color="-26368"/>
+              <text value="CLIENT DASHBOARD"/>
+            </properties>
+          </component>
+          <hspacer id="56932">
+            <constraints>
+              <grid row="0" column="2" row-span="1" col-span="1" vsize-policy="1" hsize-policy="6" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+            </constraints>
+          </hspacer>
+          <component id="6d3cc" class="javax.swing.JLabel">
+            <constraints>
+              <grid row="0" column="3" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+            </constraints>
+            <properties>
+              <font size="13"/>
+              <foreground color="-4666138"/>
+              <text value="Logged in as Customer"/>
+            </properties>
+          </component>
+          <component id="4ca84" class="javax.swing.JButton" binding="billingLogOutBT">
+            <constraints>
+              <grid row="0" column="4" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false">
+                <preferred-size width="110" height="38"/>
+              </grid>
+            </constraints>
+            <properties>
+              <background color="-1511173"/>
+              <font size="14" style="1"/>
+              <foreground color="-15444320"/>
+              <text value="Logout"/>
+            </properties>
+          </component>
+        </children>
+      </grid>
+      <tabbedpane id="e7f26" binding="tabbedPane1">
+        <constraints>
+          <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+        </constraints>
+        <properties>
+          <font size="14"/>
+        </properties>
+        <border type="none"/>
+        <children>
+          <grid id="23844" layout-manager="GridLayoutManager" row-count="2" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="16" vgap="16">
+            <margin top="20" left="24" bottom="20" right="24"/>
+            <constraints>
+              <tabbedpane title="Appointment"/>
+            </constraints>
+            <properties>
+              <background color="-788741"/>
+            </properties>
+            <border type="none"/>
+            <children>
+              <grid id="1181e" layout-manager="GridLayoutManager" row-count="2" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="12" vgap="12">
+                <margin top="18" left="20" bottom="18" right="20"/>
+                <constraints>
+                  <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="7" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <background color="-1"/>
+                </properties>
+                <border type="none"/>
+                <children>
+                  <component id="00943" class="javax.swing.JLabel">
+                    <constraints>
+                      <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <font size="16" style="1"/>
+                      <foreground color="-15261645"/>
+                      <text value="Book an appointment"/>
+                    </properties>
+                  </component>
+                  <grid id="e10f0" layout-manager="GridLayoutManager" row-count="4" column-count="4" same-size-horizontally="false" same-size-vertically="false" hgap="10" vgap="10">
+                    <margin top="0" left="0" bottom="0" right="0"/>
+                    <constraints>
+                      <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="7" anchor="8" fill="1" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <background color="-1"/>
+                    </properties>
+                    <border type="none"/>
+                    <children>
+                      <component id="8960d" class="javax.swing.JLabel">
+                        <constraints>
+                          <grid row="0" column="0" row-span="1" col-span="2" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <font size="13" style="1"/>
+                          <foreground color="-15261645"/>
+                          <text value="Service"/>
+                        </properties>
+                      </component>
+                      <component id="1bea6" class="javax.swing.JLabel">
+                        <constraints>
+                          <grid row="0" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <font size="13" style="1"/>
+                          <foreground color="-15261645"/>
+                          <text value="Vehicle"/>
+                        </properties>
+                      </component>
+                      <component id="f7bcb" class="javax.swing.JLabel">
+                        <constraints>
+                          <grid row="0" column="3" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <font size="13" style="1"/>
+                          <foreground color="-15261645"/>
+                          <text value="Problem"/>
+                        </properties>
+                      </component>
+                      <component id="d04f3" class="javax.swing.JTextField" binding="appointmentVehicleTXT">
+                        <constraints>
+                          <grid row="1" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="6" anchor="8" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="160" height="38"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <font size="14"/>
+                        </properties>
+                      </component>
+                      <component id="116f8" class="javax.swing.JComboBox" binding="appointmentProblemCMB">
+                        <constraints>
+                          <grid row="1" column="3" row-span="1" col-span="1" vsize-policy="0" hsize-policy="6" anchor="8" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="160" height="38"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <font size="14"/>
+                        </properties>
+                      </component>
+                      <component id="47d18" class="javax.swing.JLabel">
+                        <constraints>
+                          <grid row="2" column="0" row-span="1" col-span="2" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <font size="13" style="1"/>
+                          <foreground color="-15261645"/>
+                          <text value="Date"/>
+                        </properties>
+                      </component>
+                      <component id="517bd" class="javax.swing.JLabel">
+                        <constraints>
+                          <grid row="2" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <font size="13" style="1"/>
+                          <foreground color="-15261645"/>
+                          <text value="Time"/>
+                        </properties>
+                      </component>
+                      <component id="d3720" class="javax.swing.JSpinner" binding="appointmentDateSPN">
+                        <constraints>
+                          <grid row="3" column="0" row-span="1" col-span="2" vsize-policy="0" hsize-policy="6" anchor="8" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="160" height="38"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <font size="14"/>
+                        </properties>
+                      </component>
+                      <component id="5dc5a" class="javax.swing.JSpinner" binding="appointmentTimeSPN">
+                        <constraints>
+                          <grid row="3" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="6" anchor="8" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="160" height="38"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <font size="14"/>
+                        </properties>
+                      </component>
+                      <component id="b133e" class="javax.swing.JButton" binding="appointmentSubmitAppBT">
+                        <constraints>
+                          <grid row="3" column="3" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="-1" height="44"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <background color="-15444320"/>
+                          <font size="14" style="1"/>
+                          <foreground color="-1"/>
+                          <text value="Submit Appointment"/>
+                        </properties>
+                      </component>
+                      <component id="f4318" class="javax.swing.JRadioButton" binding="repairServicesRadioButton" default-binding="true">
+                        <constraints>
+                          <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <text value="Repair Services"/>
+                        </properties>
+                      </component>
+                      <component id="95cb9" class="javax.swing.JRadioButton" binding="installationServicesRadioButton" default-binding="true">
+                        <constraints>
+                          <grid row="1" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <text value="Installation Services"/>
+                        </properties>
+                      </component>
+                    </children>
+                  </grid>
+                </children>
+              </grid>
+              <grid id="79783" layout-manager="GridLayoutManager" row-count="2" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="12" vgap="12">
+                <margin top="18" left="20" bottom="18" right="20"/>
+                <constraints>
+                  <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <background color="-1"/>
+                </properties>
+                <border type="none"/>
+                <children>
+                  <component id="c63cf" class="javax.swing.JLabel">
+                    <constraints>
+                      <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <font size="16" style="1"/>
+                      <foreground color="-15261645"/>
+                      <text value="My appointments"/>
+                    </properties>
+                  </component>
+                  <scrollpane id="e039a">
+                    <constraints>
+                      <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false">
+                        <preferred-size width="900" height="230"/>
+                      </grid>
+                    </constraints>
+                    <properties/>
+                    <border type="none"/>
+                    <children>
+                      <component id="05af4" class="javax.swing.JTable" binding="appointmentTable">
+                        <constraints/>
+                        <properties/>
+                      </component>
+                    </children>
+                  </scrollpane>
+                </children>
+              </grid>
+            </children>
+          </grid>
+          <grid id="2f77d" layout-manager="GridLayoutManager" row-count="1" column-count="2" same-size-horizontally="false" same-size-vertically="false" hgap="16" vgap="16">
+            <margin top="20" left="24" bottom="20" right="24"/>
+            <constraints>
+              <tabbedpane title="Products"/>
+            </constraints>
+            <properties>
+              <background color="-788741"/>
+            </properties>
+            <border type="none"/>
+            <children>
+              <grid id="3ee24" layout-manager="GridLayoutManager" row-count="3" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="12" vgap="12">
+                <margin top="18" left="20" bottom="18" right="20"/>
+                <constraints>
+                  <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <background color="-1"/>
+                </properties>
+                <border type="none"/>
+                <children>
+                  <component id="fa249" class="javax.swing.JLabel">
+                    <constraints>
+                      <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <font size="16" style="1"/>
+                      <foreground color="-15261645"/>
+                      <text value="Browse products"/>
+                    </properties>
+                  </component>
+                  <grid id="8c795" layout-manager="GridLayoutManager" row-count="1" column-count="4" same-size-horizontally="false" same-size-vertically="false" hgap="10" vgap="10">
+                    <margin top="0" left="0" bottom="0" right="0"/>
+                    <constraints>
+                      <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="7" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <background color="-1"/>
+                    </properties>
+                    <border type="none"/>
+                    <children>
+                      <component id="5168e" class="javax.swing.JLabel">
+                        <constraints>
+                          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <font size="13" style="1"/>
+                          <foreground color="-15261645"/>
+                          <text value="Quantity"/>
+                        </properties>
+                      </component>
+                      <component id="5730c" class="javax.swing.JSpinner" binding="productQuantitySPN">
+                        <constraints>
+                          <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="80" height="38"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <font size="14"/>
+                        </properties>
+                      </component>
+                      <component id="f6b60" class="javax.swing.JButton" binding="productAddToCartBT">
+                        <constraints>
+                          <grid row="0" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="-1" height="44"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <background color="-15444320"/>
+                          <font size="14" style="1"/>
+                          <foreground color="-1"/>
+                          <text value="Add to Cart"/>
+                        </properties>
+                      </component>
+                      <hspacer id="7614a">
+                        <constraints>
+                          <grid row="0" column="3" row-span="1" col-span="1" vsize-policy="1" hsize-policy="6" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                      </hspacer>
+                    </children>
+                  </grid>
+                  <scrollpane id="ff896" binding="pane2">
+                    <constraints>
+                      <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false">
+                        <preferred-size width="580" height="340"/>
+                      </grid>
+                    </constraints>
+                    <properties/>
+                    <border type="none"/>
+                    <children>
+                      <component id="d4fe0" class="javax.swing.JTable" binding="productProductTable">
+                        <constraints/>
+                        <properties/>
+                      </component>
+                    </children>
+                  </scrollpane>
+                </children>
+              </grid>
+              <grid id="8f5dd" layout-manager="GridLayoutManager" row-count="4" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="12" vgap="12">
+                <margin top="18" left="20" bottom="18" right="20"/>
+                <constraints>
+                  <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="7" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false">
+                    <preferred-size width="380" height="-1"/>
+                  </grid>
+                </constraints>
+                <properties>
+                  <background color="-1"/>
+                </properties>
+                <border type="none"/>
+                <children>
+                  <component id="48d9b" class="javax.swing.JLabel">
+                    <constraints>
+                      <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <font size="16" style="1"/>
+                      <foreground color="-15261645"/>
+                      <text value="My cart"/>
+                    </properties>
+                  </component>
+                  <scrollpane id="cb44b" binding="pane3">
+                    <constraints>
+                      <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false">
+                        <preferred-size width="340" height="240"/>
+                      </grid>
+                    </constraints>
+                    <properties/>
+                    <border type="none"/>
+                    <children>
+                      <component id="5bfb2" class="javax.swing.JTable" binding="table3">
+                        <constraints/>
+                        <properties/>
+                      </component>
+                    </children>
+                  </scrollpane>
+                  <grid id="2ea08" layout-manager="GridLayoutManager" row-count="1" column-count="2" same-size-horizontally="false" same-size-vertically="false" hgap="10" vgap="10">
+                    <margin top="0" left="0" bottom="0" right="0"/>
+                    <constraints>
+                      <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="7" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <background color="-1"/>
+                    </properties>
+                    <border type="none"/>
+                    <children>
+                      <component id="113d6" class="javax.swing.JLabel">
+                        <constraints>
+                          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <font size="14" style="1"/>
+                          <foreground color="-15261645"/>
+                          <text value="Total"/>
+                        </properties>
+                      </component>
+                      <component id="c1a4d" class="javax.swing.JTextField" binding="productTotalTXT">
+                        <constraints>
+                          <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="6" anchor="8" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="120" height="38"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <font size="16" style="1"/>
+                          <foreground color="-15444320"/>
+                        </properties>
+                      </component>
+                    </children>
+                  </grid>
+                  <grid id="43618" layout-manager="GridLayoutManager" row-count="1" column-count="2" same-size-horizontally="true" same-size-vertically="false" hgap="10" vgap="10">
+                    <margin top="0" left="0" bottom="0" right="0"/>
+                    <constraints>
+                      <grid row="3" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="7" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <background color="-1"/>
+                    </properties>
+                    <border type="none"/>
+                    <children>
+                      <component id="ca3f9" class="javax.swing.JButton" binding="productRemoveBT">
+                        <constraints>
+                          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="-1" height="44"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <background color="-135954"/>
+                          <font size="14" style="1"/>
+                          <foreground color="-2345659"/>
+                          <text value="Remove Item"/>
+                        </properties>
+                      </component>
+                      <component id="bb627" class="javax.swing.JButton" binding="productConfirmProdOrderBT">
+                        <constraints>
+                          <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="-1" height="44"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <background color="-15444320"/>
+                          <font size="14" style="1"/>
+                          <foreground color="-1"/>
+                          <text value="Confirm Order"/>
+                        </properties>
+                      </component>
+                    </children>
+                  </grid>
+                </children>
+              </grid>
+            </children>
+          </grid>
+          <grid id="66739" layout-manager="GridLayoutManager" row-count="2" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="16" vgap="16">
+            <margin top="20" left="24" bottom="20" right="24"/>
+            <constraints>
+              <tabbedpane title="Billing"/>
+            </constraints>
+            <properties>
+              <background color="-788741"/>
+            </properties>
+            <border type="none"/>
+            <children>
+              <grid id="447be" layout-manager="GridLayoutManager" row-count="3" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="12" vgap="12">
+                <margin top="18" left="20" bottom="18" right="20"/>
+                <constraints>
+                  <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <background color="-1"/>
+                </properties>
+                <border type="none"/>
+                <children>
+                  <grid id="0e91b" layout-manager="GridLayoutManager" row-count="1" column-count="4" same-size-horizontally="false" same-size-vertically="false" hgap="10" vgap="10">
+                    <margin top="0" left="0" bottom="0" right="0"/>
+                    <constraints>
+                      <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="7" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <background color="-1"/>
+                    </properties>
+                    <border type="none"/>
+                    <children>
+                      <component id="a4f12" class="javax.swing.JLabel">
+                        <constraints>
+                          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <font size="16" style="1"/>
+                          <foreground color="-15261645"/>
+                          <text value="My bills"/>
+                        </properties>
+                      </component>
+                      <hspacer id="5e791">
+                        <constraints>
+                          <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="1" hsize-policy="6" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                      </hspacer>
+                      <component id="d8c14" class="javax.swing.JLabel">
+                        <constraints>
+                          <grid row="0" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <font size="14" style="1"/>
+                          <foreground color="-15261645"/>
+                          <text value="Outstanding balance"/>
+                        </properties>
+                      </component>
+                      <component id="da737" class="javax.swing.JTextField" binding="billingOutstandingBalanceTXT">
+                        <constraints>
+                          <grid row="0" column="3" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="150" height="38"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <font size="16" style="1"/>
+                          <foreground color="-15444320"/>
+                        </properties>
+                      </component>
+                    </children>
+                  </grid>
+                  <scrollpane id="f6b92">
+                    <constraints>
+                      <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false">
+                        <preferred-size width="900" height="160"/>
+                      </grid>
+                    </constraints>
+                    <properties/>
+                    <border type="none"/>
+                    <children>
+                      <component id="e9d2b" class="javax.swing.JTable" binding="billingMyBillsTable">
+                        <constraints/>
+                        <properties/>
+                      </component>
+                    </children>
+                  </scrollpane>
+                  <grid id="68a02" layout-manager="GridLayoutManager" row-count="1" column-count="2" same-size-horizontally="false" same-size-vertically="false" hgap="10" vgap="10">
+                    <margin top="0" left="0" bottom="0" right="0"/>
+                    <constraints>
+                      <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="7" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <background color="-1"/>
+                    </properties>
+                    <border type="none"/>
+                    <children>
+                      <component id="675ab" class="javax.swing.JButton" binding="billingReviewBillBT">
+                        <constraints>
+                          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="-1" height="44"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <background color="-15444320"/>
+                          <font size="14" style="1"/>
+                          <foreground color="-1"/>
+                          <text value="Review and Pay Bills"/>
+                        </properties>
+                      </component>
+                      <hspacer id="0231b">
+                        <constraints>
+                          <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="1" hsize-policy="6" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                      </hspacer>
+                    </children>
+                  </grid>
+                </children>
+              </grid>
+              <grid id="9d3ae" layout-manager="GridLayoutManager" row-count="3" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="12" vgap="12">
+                <margin top="18" left="20" bottom="18" right="20"/>
+                <constraints>
+                  <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <background color="-1"/>
+                </properties>
+                <border type="none"/>
+                <children>
+                  <component id="2ca28" class="javax.swing.JLabel">
+                    <constraints>
+                      <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <font size="16" style="1"/>
+                      <foreground color="-15261645"/>
+                      <text value="Transaction records"/>
+                    </properties>
+                  </component>
+                  <scrollpane id="41d0f">
+                    <constraints>
+                      <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false">
+                        <preferred-size width="900" height="140"/>
+                      </grid>
+                    </constraints>
+                    <properties/>
+                    <border type="none"/>
+                    <children>
+                      <component id="6fa72" class="javax.swing.JTable" binding="billingTransacRecordTable">
+                        <constraints/>
+                        <properties/>
+                      </component>
+                    </children>
+                  </scrollpane>
+                  <grid id="5c2bb" layout-manager="GridLayoutManager" row-count="1" column-count="2" same-size-horizontally="false" same-size-vertically="false" hgap="10" vgap="10">
+                    <margin top="0" left="0" bottom="0" right="0"/>
+                    <constraints>
+                      <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="7" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <background color="-1"/>
+                    </properties>
+                    <border type="none"/>
+                    <children>
+                      <component id="57d5d" class="javax.swing.JButton" binding="billingViewRecieptBT">
+                        <constraints>
+                          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false">
+                            <preferred-size width="-1" height="44"/>
+                          </grid>
+                        </constraints>
+                        <properties>
+                          <background color="-1511173"/>
+                          <font size="14" style="1"/>
+                          <foreground color="-15444320"/>
+                          <text value="View Receipt"/>
+                        </properties>
+                      </component>
+                      <scrollpane id="67d86">
+                        <constraints>
+                          <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties/>
+                        <border type="none"/>
+                        <children>
+                          <component id="4548d" class="javax.swing.JTextArea" binding="billingTXTArea">
+                            <constraints/>
+                            <properties/>
+                          </component>
+                        </children>
+                      </scrollpane>
+                    </children>
+                  </grid>
+                </children>
+              </grid>
+            </children>
+          </grid>
+        </children>
+      </tabbedpane>
+    </children>
+  </grid>
+</form>

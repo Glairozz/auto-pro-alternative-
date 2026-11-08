@@ -1,57 +1,74 @@
-import javax.swing.UIManager;
-import java.awt.Color;
+import javax.swing.table.DefaultTableModel;
 
-/**
- * The look of the whole app lives here.
- * Call Theme.init() ONCE at the very start of main(), before any window is created.
- * Every screen (login, register, client, admin) then gets the same modern style automatically.
- *
- * Palette used in the .form files:
- *   Navy   #0B2B50  (side panel, admin header)   Blue   #1456A0  (main buttons)
- *   Orange #FF9900  (small accents)              Text   #172033  (headings)
- *   Muted  #6B7280  (hints)                      Soft   #E8F0FB  (secondary buttons)
- *   Page   #F3F6FB  (page background)            White  #FFFFFF  (cards)
- *   Danger #DC3545  (delete / decline)           Danger soft #FDECEE (cancel / logout)
- */
-public class Theme {
+public final class StoreAccounts {
+    private static final StoreAccounts INSTANCE = new StoreAccounts();
+    public static StoreAccounts getInstance() { return INSTANCE; }
 
-    public static void init() {
-        try {
-            // FlatLaf = a free library that makes Swing look modern (flat, clean, rounded)
-            UIManager.setLookAndFeel("com.formdev.flatlaf.FlatLightLaf");
-        } catch (Exception e) {
-            System.out.println("FlatLaf library not found - using the normal look. See README.txt, step 1.");
-            return;
+    private final DefaultTableModel admins = new DefaultTableModel();
+    private final DefaultTableModel clients = new DefaultTableModel();
+
+    private StoreAccounts() {
+        admins.addColumn("Username");
+        admins.addColumn("Password");
+        admins.addRow(new Object[]{"admin", "admin123"});
+        admins.addRow(new Object[]{"Jervey", "bossRica"});
+        admins.addRow(new Object[]{"Blair", "ILoveYouMaam"});
+        admins.addRow(new Object[]{"Liam", "Uarai"});
+
+        clients.addColumn("Username");
+        clients.addColumn("Password");
+        clients.addColumn("Name");
+        clients.addColumn("Appointment's");
+        clients.addColumn("Bills");
+        clients.addColumn("Transaction Records");
+    }
+
+    public boolean validAdmin(String inputUser, String inputPass) {
+        for(int rowSearch = 0; rowSearch<admins.getRowCount(); rowSearch++){
+            if(inputUser.equals(admins.getValueAt(rowSearch,0))&&inputPass.equals(admins.getValueAt(rowSearch,1))) {
+                return true;
+            }
+        }
+        return false;
+    }
+    public boolean validClient(String inputUser, String inputPass) {
+        for(int rowSearch = 0; rowSearch<clients.getRowCount(); rowSearch++){
+            if(inputUser.equals(clients.getValueAt(rowSearch,0))&&inputPass.equals(clients.getValueAt(rowSearch,1))) {
+                return true;
+            }
+        }
+        return false;
+    }
+    public String  getClientName(String inputName)            {
+        for(int rowSearch = 0; rowSearch<clients.getRowCount(); rowSearch++) {
+            if(inputName.equalsIgnoreCase(clients.getValueAt(rowSearch,0).toString())) {
+                return clients.getValueAt(rowSearch,2).toString();
+
+            }
+        }
+        return null;
+    }
+    public String registerClient(String user, String pass, String name) {
+        String username = user == null ? "" : user.trim();
+        String password = pass == null ? "" : pass;
+        String fullName = name == null ? "" : name.trim();
+
+        if (username.isEmpty() || password.trim().isEmpty() || fullName.isEmpty()) {
+            return "Please complete all registration fields.";
+        }
+        for (int row = 0; row < admins.getRowCount(); row++) {
+            if (username.equalsIgnoreCase(String.valueOf(admins.getValueAt(row, 0)))) {
+                return "This username is already reserved.";
+            }
+        }
+        for (int row = 0; row < clients.getRowCount(); row++) {
+            if (username.equalsIgnoreCase(String.valueOf(clients.getValueAt(row, 0)))) {
+                return "Username already exists. Please choose another username.";
+            }
         }
 
-        Color blue = new Color(0x1456A0);
-        Color text = new Color(0x172033);
-        Color page = new Color(0xF3F6FB);
-
-        // rounded corners
-        UIManager.put("Button.arc", 12);
-        UIManager.put("Component.arc", 12);              // combo boxes, spinners
-        UIManager.put("TextComponent.arc", 12);          // text fields
-
-        // blue focus outline and tabs
-        UIManager.put("Component.focusWidth", 1);
-        UIManager.put("Component.focusColor", blue);
-        UIManager.put("TabbedPane.underlineColor", blue);
-        UIManager.put("TabbedPane.selectedForeground", blue);
-        UIManager.put("TabbedPane.tabHeight", 40);
-
-        // tables: taller rows, light header, soft blue selection
-        UIManager.put("Table.rowHeight", 30);
-        UIManager.put("Table.showVerticalLines", false);
-        UIManager.put("Table.showHorizontalLines", true);
-        UIManager.put("Table.selectionBackground", new Color(0xDCE8F8));
-        UIManager.put("Table.selectionForeground", text);
-        UIManager.put("TableHeader.background", page);
-        UIManager.put("TableHeader.foreground", text);
-        UIManager.put("TableHeader.bottomSeparatorColor", new Color(0xD1D5DB));
-
-        // slim, rounded scroll bars
-        UIManager.put("ScrollBar.thumbArc", 999);
-        UIManager.put("ScrollBar.width", 12);
+        clients.addRow(new Object[]{username, password, fullName,
+                "No Appointments", "No Bills", "No Transaction Records"});
+        return null;
     }
 }

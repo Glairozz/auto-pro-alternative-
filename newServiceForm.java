@@ -39,6 +39,10 @@ public class newServiceForm {
     private JScrollPane pane3;
     private JScrollPane pane2;
 
+    private JRadioButton repairServicesRadioButton;
+    private JRadioButton installationServicesRadioButton;
+    private JTextArea billingTXTArea;
+
     private final AutomotiveData sharedData = AutomotiveData.getInstance();
     private final String currentClientUsername = SessionUser.getUsername();
     private final String currentClientName = SessionUser.getDisplayName();
