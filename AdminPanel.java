@@ -1,15 +1,14 @@
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.TableRowSorter;
 
-/**
- * Admin dashboard.
- * The tabs manage appointments, products, billing history, transactions, and service status.
- */
+// Admin dashboard for appointments, products, billing, and services.
 public class AdminPanel {
     // Components created by the IntelliJ GUI Designer .form file.
     private JTabbedPane tabbedPane1;
@@ -46,7 +45,7 @@ public class AdminPanel {
     private DefaultTableModel billingRecordsTable;
 
 
-    /** Returns the admin panel so it can be placed inside a JFrame. */
+    // Returns the panel so it can be placed inside a JFrame.
     public JPanel getAdminPanel() {
         return adminPanel;
     }
@@ -66,6 +65,14 @@ public class AdminPanel {
         tblProdMasterList.setModel(productMasterlistTable);
         tblTransactionRecords.setModel(transactionRecordsTable);
         tblAdminBillHistory.setModel(billingRecordsTable);
+
+        // Keep permanent product IDs in the model, but show 1, 2, 3... in the table.
+        tblProdMasterList.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean selected, boolean focused, int row, int column) {
+                return super.getTableCellRendererComponent(table, row + 1, selected, focused, row, column);
+            }
+        });
 
         // Hide the client-username columns in the admin views.
         hideTableColumn(tblClientAppointmentMastList, 9);
@@ -251,119 +258,84 @@ public class AdminPanel {
             }
         });
 
-        // Add a new product after validating the fields and checking for duplicates.
-        btnProdAdd.addActionListener(new ActionListener() {
+        // Add and update use the same validation and save code.
+        ActionListener saveProduct = new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                try {
-                    String prodName = txtProdName.getText().trim();
-                    String prodCategory = txtProdCat.getText().trim();
+                boolean adding = e.getSource() == btnProdAdd;
+                int row = adding ? -1 : tblProdMasterList.getSelectedRow();
 
-                    if (prodName.isEmpty() || prodCategory.isEmpty()) {
-                        JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
-                        return;
-                    }
-
-                    float prodPrice = Float.parseFloat(txtProdPrice.getText().trim());
-                    int prodStock = Integer.parseInt(txtProdStock.getText().trim());
-
-                    if (prodPrice < 0 || prodStock < 0) {
-                        JOptionPane.showMessageDialog(adminPanel, "Price and stock cannot be negative.", "ERROR", JOptionPane.WARNING_MESSAGE);
-                        return;
-                    }
-
-                    for (int rowSearch = 0; rowSearch < productMasterlistTable.getRowCount(); rowSearch++) {
-                        if (prodName.equalsIgnoreCase(productMasterlistTable.getValueAt(rowSearch, 1).toString())) {
-                            JOptionPane.showMessageDialog(adminPanel, "Product Already Exists!", "ERROR", JOptionPane.WARNING_MESSAGE);
-                            return;
-                        }
-                    }
-
-                    productMasterlistTable.addRow(new Object[]{
-                            sharedData.nextProductID(), prodName, prodCategory, prodPrice, prodStock
-                    });
-                } catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
+                if (!adding && row == -1) {
+                    JOptionPane.showMessageDialog(adminPanel, "Please Select an item to Update", "ERROR", JOptionPane.WARNING_MESSAGE);
+                    return;
                 }
-            }
-        });
 
-        // Save the edited values back into the selected product row.
-        btnProdUpdate.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
+                if (row >= 0) {
+                    row = tblProdMasterList.convertRowIndexToModel(row);
+                }
+
+                String name = txtProdName.getText().trim();
+                String category = txtProdCat.getText().trim();
+
                 try {
-                    int selectedRow = tblProdMasterList.getSelectedRow();
-
-                    if (selectedRow == -1) {
-                        JOptionPane.showMessageDialog(adminPanel, "Please Select an item to Update", "ERROR", JOptionPane.WARNING_MESSAGE);
-                        return;
-                    }
-
-                    selectedRow = tblProdMasterList.convertRowIndexToModel(selectedRow);
-                    String prodName = txtProdName.getText().trim();
-                    String prodCategory = txtProdCat.getText().trim();
-
-                    if (prodName.isEmpty() || prodCategory.isEmpty()) {
+                    if (name.isEmpty() || category.isEmpty()) {
                         JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
                         return;
                     }
 
-                    float prodPrice = Float.parseFloat(txtProdPrice.getText().trim());
-                    int prodStock = Integer.parseInt(txtProdStock.getText().trim());
+                    float price = Float.parseFloat(txtProdPrice.getText().trim());
+                    int stock = Integer.parseInt(txtProdStock.getText().trim());
 
-                    if (prodPrice < 0 || prodStock < 0) {
+                    if (price < 0 || stock < 0) {
                         JOptionPane.showMessageDialog(adminPanel, "Price and stock cannot be negative.", "ERROR", JOptionPane.WARNING_MESSAGE);
                         return;
                     }
 
                     for (int i = 0; i < productMasterlistTable.getRowCount(); i++) {
-                        if (i != selectedRow && prodName.equalsIgnoreCase(productMasterlistTable.getValueAt(i, 1).toString())) {
+                        if (i != row && name.equalsIgnoreCase(productMasterlistTable.getValueAt(i, 1).toString())) {
                             JOptionPane.showMessageDialog(adminPanel, "Product Already Exists!", "ERROR", JOptionPane.WARNING_MESSAGE);
                             return;
                         }
                     }
 
-                    productMasterlistTable.setValueAt(prodName, selectedRow, 1);
-                    productMasterlistTable.setValueAt(prodCategory, selectedRow, 2);
-                    productMasterlistTable.setValueAt(prodPrice, selectedRow, 3);
-                    productMasterlistTable.setValueAt(prodStock, selectedRow, 4);
+                    if (row == -1) {
+                        productMasterlistTable.addRow(new Object[]{
+                                sharedData.nextProductID(), name, category, price, stock
+                        });
+                    } else {
+                        productMasterlistTable.setValueAt(name, row, 1);
+                        productMasterlistTable.setValueAt(category, row, 2);
+                        productMasterlistTable.setValueAt(price, row, 3);
+                        productMasterlistTable.setValueAt(stock, row, 4);
+                    }
                 } catch (NumberFormatException ex) {
                     JOptionPane.showMessageDialog(adminPanel, "Invalid Input!", "ERROR", JOptionPane.WARNING_MESSAGE);
                 }
             }
-        });
+        };
+        btnProdAdd.addActionListener(saveProduct);
+        btnProdUpdate.addActionListener(saveProduct);
 
-        // Remove the selected product and clear the edit fields.
+        // Remove the selected product and clear the form.
         btnProdDelete.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                int selectedRow = tblProdMasterList.getSelectedRow();
+                int row = tblProdMasterList.getSelectedRow();
 
-                if (selectedRow == -1) {
+                if (row == -1) {
                     JOptionPane.showMessageDialog(adminPanel, "Please Select an item to delete", "ERROR", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
-                int row = tblProdMasterList.convertRowIndexToModel(selectedRow);
-                productMasterlistTable.removeRow(row);
-                txtProdName.setText("");
-                txtProdCat.setText("");
-                txtProdPrice.setText("");
-                txtProdStock.setText("");
+                productMasterlistTable.removeRow(tblProdMasterList.convertRowIndexToModel(row));
+                clearProductForm();
             }
         });
 
         // Clear the product form without deleting anything.
-        btnProdClear.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                txtProdName.setText("");
-                txtProdCat.setText("");
-                txtProdPrice.setText("");
-                txtProdStock.setText("");
-                tblProdMasterList.clearSelection();
-            }
+        btnProdClear.addActionListener(e -> {
+            clearProductForm();
+            tblProdMasterList.clearSelection();
         });
         // Start the selected service after checking approval and completion state.
         btnStartService.addActionListener(new ActionListener() {
@@ -472,7 +444,15 @@ public class AdminPanel {
         });
     }
 
-    /** Hides a model column from a JTable while keeping the data in the model. */
+    // Clears the product text fields.
+    private void clearProductForm() {
+        txtProdName.setText("");
+        txtProdCat.setText("");
+        txtProdPrice.setText("");
+        txtProdStock.setText("");
+    }
+
+    // Hides a model column while keeping its data.
     private void hideTableColumn(JTable table, int modelColumn) {
         int viewColumn = table.convertColumnIndexToView(modelColumn);
         if (viewColumn >= 0) {
