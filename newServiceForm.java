@@ -7,7 +7,6 @@ import java.awt.Font;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.print.PrinterException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -43,9 +42,6 @@ public class newServiceForm {
     private JTable billingTransacRecordTable;
     private JButton billingViewRecieptBT;
     private JTextArea billingTXTArea;
-    private JTextArea receiptTXTArea;
-    private JButton billingPrintBT;
-    private JButton receiptPrintBT;
     private JScrollPane pane3;
     private JScrollPane pane2;
 
@@ -114,11 +110,6 @@ public class newServiceForm {
         billingTXTArea.setWrapStyleWord(true);
         billingTXTArea.setFont(reviewFont);
         billingTXTArea.setMargin(reviewMargin);
-        receiptTXTArea.setEditable(false);
-        receiptTXTArea.setLineWrap(true);
-        receiptTXTArea.setWrapStyleWord(true);
-        receiptTXTArea.setFont(reviewFont);
-        receiptTXTArea.setMargin(reviewMargin);
 
         appointmentTimeSPN.setModel(new AbstractSpinnerModel() {
             private int currentMinutes = (8 * 60) + 30;
@@ -447,14 +438,11 @@ public class newServiceForm {
                     int receiptID = sharedData.nextReceiptID();
                     String paymentDate = new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date());
                     transModel.addRow(new Object[]{receiptID, billNumber, clientName, amount, selectedMethod, paymentDate, currentClientUsername});
-                    int transactionRow = transModel.getRowCount() - 1;
 
                     double balance = calculateOutstandingBalance();
 
                     billingOutstandingBalanceTXT.setText(String.format("₱%.2f", balance));
                     updateBillingReviewText();
-                    receiptTXTArea.setText(buildReceiptText(transactionRow));
-                    receiptTXTArea.setCaretPosition(0);
 
                     JOptionPane.showMessageDialog(
                             servicesPanel,
@@ -488,28 +476,12 @@ public class newServiceForm {
 
                 selectedRow = billingTransacRecordTable.convertRowIndexToModel(selectedRow);
                 String receipt = buildReceiptText(selectedRow);
-                receiptTXTArea.setText(receipt);
-                receiptTXTArea.setCaretPosition(0);
                 JOptionPane.showMessageDialog(
                         servicesPanel,
                         receipt,
                         "Receipt",
                         JOptionPane.INFORMATION_MESSAGE
                 );
-            }
-        });
-
-        billingPrintBT.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                printTextArea(billingTXTArea, "Billing Review");
-            }
-        });
-
-        receiptPrintBT.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                printTextArea(receiptTXTArea, "Receipt");
             }
         });
 
@@ -872,19 +844,6 @@ public class newServiceForm {
         }
 
         return -1;
-    }
-
-    private void printTextArea(JTextArea textArea, String title) {
-        if (textArea.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(servicesPanel, "There is no " + title.toLowerCase() + " to print.", "Print", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        try {
-            textArea.print();
-        } catch (PrinterException ex) {
-            JOptionPane.showMessageDialog(servicesPanel, "Unable to print " + title.toLowerCase() + ":\n" + ex.getMessage(), "Print Error", JOptionPane.ERROR_MESSAGE);
-        }
     }
 
     public JPanel getServicesPanel() {
