@@ -1,18 +1,6 @@
 import javax.swing.UIManager;
 import java.awt.Color;
 
-/**
- * The look of the whole app lives here.
- * Call Theme.init() ONCE at the very start of main(), before any window is created.
- * Every screen (login, register, client, admin) then gets the same modern style automatically.
- *
- * Palette used in the .form files:
- *   Navy   #0B2B50  (side panel, admin header)   Blue   #1456A0  (main buttons)
- *   Orange #FF9900  (small accents)              Text   #172033  (headings)
- *   Muted  #6B7280  (hints)                      Soft   #E8F0FB  (secondary buttons)
- *   Page   #F3F6FB  (page background)            White  #FFFFFF  (cards)
- *   Danger #DC3545  (delete / decline)           Danger soft #FDECEE (cancel / logout)
- */
 public class Theme {
 
     /** Applies FlatLaf and the shared colors, rounded corners, and table styling. */

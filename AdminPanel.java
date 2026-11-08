@@ -424,18 +424,19 @@ public class AdminPanel {
 
                 selectedRow = tblClientAppointmentMastList.convertRowIndexToModel(selectedRow);
                 int appointmentID = Integer.parseInt(clientAppointmentListTable.getValueAt(selectedRow, 0).toString());
-                String currentStatus = sharedData.getAppointmentStatus(appointmentID);
+                String serviceStatus = sharedData.getServiceStatus(appointmentID);
 
-                if (currentStatus == null) {
+                if (serviceStatus == null) {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
-                if (currentStatus.equals("Approved")) {
-                    JOptionPane.showMessageDialog(adminPanel, "This appointment was approved and cannot be cancelled.", "Error", JOptionPane.ERROR_MESSAGE);
+                if (serviceStatus.equals("Completed")) {
+                    JOptionPane.showMessageDialog(adminPanel, "This appointment was already completed and cannot be cancelled.", "Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
                 if (sharedData.updateAppointmentStatus(appointmentID, "Cancelled")) {
+                    sharedData.updateServiceStatus(appointmentID, "Cancelled");
                     JOptionPane.showMessageDialog(adminPanel, "Appointment cancelled. The client cannot pay this service bill.");
                 } else {
                     JOptionPane.showMessageDialog(adminPanel, "Appointment record not found.", "Error", JOptionPane.ERROR_MESSAGE);

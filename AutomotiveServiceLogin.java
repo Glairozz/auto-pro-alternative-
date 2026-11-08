@@ -1,13 +1,10 @@
 import javax.swing.*;
-import java.awt.Dimension;
 
 /**
  * Login screen for admins and clients.
  * A successful login opens the matching dashboard and closes this window.
  */
 public class AutomotiveServiceLogin {
-    // Both dashboards use the same fixed window size.
-    private static final Dimension ADMIN_CLIENT_WINDOW_SIZE = new Dimension(1100, 700);
 
     private JTabbedPane tabbedPane1;
     private JTextField txtAdminUser;
@@ -18,22 +15,29 @@ public class AutomotiveServiceLogin {
     private JButton btnClientLogin;
     private JButton btnClientRegister;
     private JPanel mainPanel;
+
     /** Returns the login panel so it can be placed inside a JFrame. */
-    public JPanel getMainPanel(){
+    public JPanel getMainPanel() {
         return mainPanel;
     }
 
     public AutomotiveServiceLogin() {
+
         // Admin login: check the admin account table, then open the admin dashboard.
         btnAdminLogin.addActionListener(e -> {
             String adminPass = txtAdminPass.getText();
             String adminUser = txtAdminUser.getText().trim();
 
             if (StoreAccounts.getInstance().validAdmin(adminUser, adminPass)) {
-                showFixedSizeWindow("AutoCare - Admin", new AdminPanel().getAdminPanel());
+                showWindow("AutoCare - Admin", new AdminPanel().getAdminPanel());
                 closeLoginWindow();
             } else {
-                JOptionPane.showMessageDialog(null, "Invalid Username or Password", "Invalid", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(
+                        null,
+                        "Invalid Username or Password",
+                        "Invalid",
+                        JOptionPane.WARNING_MESSAGE
+                );
             }
         });
 
@@ -45,10 +49,20 @@ public class AutomotiveServiceLogin {
 
             if (accounts.validClient(clientUser, clientPass)) {
                 SessionUser.loginClient(clientUser, accounts.getClientName(clientUser));
-                showFixedSizeWindow("AutoCare - Services", new newServiceForm().getServicesPanel());
+
+                showWindow(
+                        "AutoCare - Services",
+                        new newServiceForm().getServicesPanel()
+                );
+
                 closeLoginWindow();
             } else {
-                JOptionPane.showMessageDialog(null, "Invalid Username or Password", "Invalid", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(
+                        null,
+                        "Invalid Username or Password",
+                        "Invalid",
+                        JOptionPane.WARNING_MESSAGE
+                );
             }
         });
 
@@ -61,16 +75,25 @@ public class AutomotiveServiceLogin {
 
                 // The form must provide a panel before the window can be shown.
                 if (panel == null) {
-                    JOptionPane.showMessageDialog(null, "Error: getRegisterPanel() returned null. Check AutomotiveClientInfo.java!", "Null Panel Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(
+                            null,
+                            "Error: getRegisterPanel() returned null. Check AutomotiveClientInfo.java!",
+                            "Null Panel Error",
+                            JOptionPane.ERROR_MESSAGE
+                    );
                     return;
                 }
 
                 registerFrame.setContentPane(panel);
                 registerFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
                 registerFrame.pack();
+                registerFrame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                registerFrame.setResizable(true);
                 registerFrame.setLocationRelativeTo(null);
                 registerFrame.setVisible(true);
+
                 closeLoginWindow();
+
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -80,34 +103,36 @@ public class AutomotiveServiceLogin {
     /** Closes the login window after another screen has opened. */
     private void closeLoginWindow() {
         JFrame loginFrame = (JFrame) SwingUtilities.getWindowAncestor(mainPanel);
+
         if (loginFrame != null) {
             loginFrame.dispose();
         }
     }
 
-    /** Applies the shared fixed size and centers the window on the screen. */
-    private static void applyFixedWindowSize(JFrame frame) {
-        frame.setPreferredSize(ADMIN_CLIENT_WINDOW_SIZE);
-        frame.pack();
-        frame.setSize(ADMIN_CLIENT_WINDOW_SIZE);
-        frame.setResizable(false);
-        frame.setLocationRelativeTo(null);
-    }
-
-    /** Opens a dashboard panel in a fixed-size window. */
-    private static void showFixedSizeWindow(String title, JPanel panel) {
+    /** Opens a dashboard panel in a maximized, resizable window. */
+    private static void showWindow(String title, JPanel panel) {
         JFrame frame = new JFrame(title);
+
         frame.setContentPane(panel);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        applyFixedWindowSize(frame);
+        frame.pack();
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        frame.setResizable(true);
+        frame.setLocationRelativeTo(null);
         frame.setVisible(true);
     }
 
     /** Opens a fresh login window; used after registration or logout. */
     static void showLoginWindow(String title) {
         JPanel panel = new AutomotiveServiceLogin().getMainPanel();
+
         if (panel == null) {
-            JOptionPane.showMessageDialog(null, "Error: getMainPanel() returned null. Check AutomotiveServiceLogin.java!", "Null Panel Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(
+                    null,
+                    "Error: getMainPanel() returned null. Check AutomotiveServiceLogin.java!",
+                    "Null Panel Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
             return;
         }
 
@@ -115,13 +140,18 @@ public class AutomotiveServiceLogin {
         frame.setContentPane(panel);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        frame.setResizable(true);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
     }
 
     /** Starts the application by applying the theme and showing the login screen. */
-    public static void main(String[] args){
+    public static void main(String[] args) {
         Theme.init();
-        SwingUtilities.invokeLater(() -> showLoginWindow(""));
+
+        SwingUtilities.invokeLater(() ->
+                showLoginWindow("")
+        );
     }
 }

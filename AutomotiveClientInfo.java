@@ -1,9 +1,5 @@
 import javax.swing.*;
 
-/**
- * Client registration form.
- * It validates the entered details, saves the account, and returns to the login screen.
- */
 public class AutomotiveClientInfo {
     private JTextField txtName;
     private JTextField txtUser;
