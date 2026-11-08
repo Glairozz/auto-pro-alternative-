@@ -1,3 +1,6 @@
+/**
+ * Holds one appointment request and checks that its details are valid.
+ */
 public class AppointmentDetails {
 
     private AutomotiveService service;
@@ -10,6 +13,10 @@ public class AppointmentDetails {
         this.serviceDetail = serviceDetail;
     }
 
+    /**
+     * Validates the appointment before it is added to the shared table.
+     * Returns a readable error message, or "Valid Appointment" when all checks pass.
+     */
     public String validateServiceRequest() {
 
         if (service == null) {
@@ -31,6 +38,7 @@ public class AppointmentDetails {
         return "Valid Appointment";
     }
 
+    /** Gets the price from the selected service and service detail. */
     public double getEstimatedPrice() {
         return service.getServicePrice(serviceDetail);
     }

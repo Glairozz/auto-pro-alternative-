@@ -1,5 +1,9 @@
 import javax.swing.*;
 
+/**
+ * Client registration form.
+ * It validates the entered details, saves the account, and returns to the login screen.
+ */
 public class AutomotiveClientInfo {
     private JTextField txtName;
     private JTextField txtUser;
@@ -10,21 +14,26 @@ public class AutomotiveClientInfo {
     private JButton btnCancel;
 
     public AutomotiveClientInfo() {
+        // Validate the form and create the client account.
         btnSignUp.addActionListener(e -> {
             String pass = new String(txtPass.getPassword());
             String rePass = new String(txtRePass.getPassword());
             String user = txtUser.getText().trim();
             String name = txtName.getText().trim();
 
+            // All fields are required.
             if (pass.trim().isEmpty() || rePass.trim().isEmpty() || user.isEmpty() || name.isEmpty()) {
                 JOptionPane.showMessageDialog(registerPanel, "Fill out all blanks!", "Missing Information", JOptionPane.WARNING_MESSAGE);
                 return;
             }
+
+            // The two password fields must match.
             if (!pass.equals(rePass)) {
                 JOptionPane.showMessageDialog(registerPanel, "Passwords do not match!", "Incorrect Password", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
+            // StoreAccounts checks for duplicate/reserved usernames.
             String error = StoreAccounts.getInstance().registerClient(user, pass, name);
             if (error != null) {
                 JOptionPane.showMessageDialog(registerPanel, error, "Registration Error", JOptionPane.WARNING_MESSAGE);
@@ -39,6 +48,7 @@ public class AutomotiveClientInfo {
             }
         });
 
+        // Cancel closes registration and goes back to login.
         btnCancel.addActionListener(e -> {
             try {
                 returnToLogin();
@@ -48,6 +58,7 @@ public class AutomotiveClientInfo {
         });
     }
 
+    /** Opens the login window and closes the registration window. */
     private void returnToLogin() {
         AutomotiveServiceLogin.showLoginWindow("Login");
         JFrame currentFrame = (JFrame) SwingUtilities.getWindowAncestor(registerPanel);
@@ -56,5 +67,6 @@ public class AutomotiveClientInfo {
         }
     }
 
+    /** Returns the registration panel so it can be placed inside a JFrame. */
     public JPanel getRegisterPanel() { return registerPanel; }
 }

@@ -11,13 +11,20 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 
+/**
+ * Client dashboard.
+ * It contains the appointment form, product cart, and billing/payment screens.
+ * Each client sees only their own appointments, bills, and transactions.
+ */
 public class newServiceForm {
+    // Shared table models loaded from AutomotiveData.
     private DefaultTableModel appointmentModel;
     private DefaultTableModel productModel;
     private DefaultTableModel cartModel;
     private DefaultTableModel billModel;
     private DefaultTableModel transModel;
 
+    // Components created by the IntelliJ GUI Designer .form file.
     private JTabbedPane tabbedPane1;
     private JPanel servicesPanel;
     private JButton billingLogOutBT;
@@ -45,12 +52,14 @@ public class newServiceForm {
     private JScrollPane pane3;
     private JScrollPane pane2;
 
+    // Shared data and the currently logged-in client.
     private final AutomotiveData sharedData = AutomotiveData.getInstance();
     private final String currentClientUsername = SessionUser.getUsername();
     private final String currentClientName = SessionUser.getDisplayName();
 
 
     public newServiceForm() {
+        // Connect the visual tables to the shared data models.
         appointmentModel = sharedData.getAppointmentModel();
         productModel = sharedData.getProductModel();
         cartModel = sharedData.getCartModel(currentClientUsername);
@@ -62,23 +71,29 @@ public class newServiceForm {
         table3.setModel(cartModel);
         billingMyBillsTable.setModel(billModel);
         billingTransacRecordTable.setModel(transModel);
+
+        // Client username columns are only needed for filtering, so hide them.
         hideTableColumn(appointmentTable, 9);
         hideTableColumn(billingMyBillsTable, 8);
         hideTableColumn(billingTransacRecordTable, 6);
 
+        // Show only records that belong to the logged-in client.
         filterByClient(appointmentTable, appointmentModel, 9);
         filterByClient(billingMyBillsTable, billModel, 8);
         filterByClient(billingTransacRecordTable, transModel, 6);
 
+        // Appointment date picker.
         SpinnerDateModel dateModel = new SpinnerDateModel(new Date(), null, null, Calendar.DAY_OF_MONTH);
         appointmentDateSPN.setModel(dateModel);
         appointmentDateSPN.setEditor(new JSpinner.DateEditor(appointmentDateSPN, "dd/MM/yyyy"));
 
+        // Cart quantity starts at 1 and the totals are read-only.
         productQuantitySPN.setModel(new SpinnerNumberModel(1, 1, 100, 1));
         productTotalTXT.setText("₱0.00");
         productTotalTXT.setEditable(false);
         billingOutstandingBalanceTXT.setEditable(false);
 
+        // Billing review text area styling.
         Font reviewFont = new Font("Monospaced", Font.PLAIN, 12);
         Insets reviewMargin = new Insets(8, 8, 8, 8);
         billingTXTArea.setEditable(false);
@@ -87,6 +102,7 @@ public class newServiceForm {
         billingTXTArea.setFont(reviewFont);
         billingTXTArea.setMargin(reviewMargin);
 
+        // Time picker works in 30-minute steps from 08:30.
         appointmentTimeSPN.setModel(new AbstractSpinnerModel() {
             private int currentMinutes = (8 * 60) + 30;
 
@@ -126,10 +142,12 @@ public class newServiceForm {
         appointmentTimeSPN.setEditor(new JSpinner.DefaultEditor(appointmentTimeSPN));
         ((JSpinner.DefaultEditor) appointmentTimeSPN.getEditor()).getTextField().setEditable(false);
 
+        // The two radio buttons share one group, so only one service type can be selected.
         ButtonGroup serviceTypeGroup = new ButtonGroup();
         serviceTypeGroup.add(repairServicesRadioButton);
         serviceTypeGroup.add(installationServicesRadioButton);
 
+        // Reload the problem dropdown whenever the service type changes.
         ActionListener serviceTypeListener = new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -145,6 +163,7 @@ public class newServiceForm {
         repairServicesRadioButton.setSelected(true);
         serviceTypeListener.actionPerformed(null);
 
+        // Submit a new appointment and create its matching pending service bill.
         appointmentSubmitAppBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -174,6 +193,8 @@ public class newServiceForm {
                 double estimate = appointment.getEstimatedPrice();
                 int appointmentID = sharedData.nextAppointmentID();
 
+                // Appointment columns: 0 ID, 1 client, 2 service, 3 vehicle, 4 details,
+                // 5 schedule, 6 approval status, 7 service status, 8 estimate, 9 username.
                 appointmentModel.addRow(new Object[]{
                         appointmentID, currentClientName, appointment.getServiceName(), appointment.getVehicleInfo(),
                         appointment.getServiceDetail(), schedule, "Pending", "Not Started", String.format("₱%.2f", estimate), currentClientUsername
@@ -183,6 +204,7 @@ public class newServiceForm {
                 String amount = String.format("₱%.2f", estimate);
                 String billDate = new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date());
 
+                // Service bills start as Pending approval and Unpaid.
                 billModel.addRow(new Object[]{
                         billID, currentClientName, "Service", serviceName + " - " + problem + " (" + vehicle + ")",
                         amount, "Pending", "Unpaid", billDate, currentClientUsername
@@ -195,6 +217,7 @@ public class newServiceForm {
             }
         });
 
+        // Add the selected product to the client's cart and reduce its stock.
         productAddToCartBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -217,6 +240,7 @@ public class newServiceForm {
                 String name = productModel.getValueAt(selectedRow, 1).toString();
                 double price = Double.parseDouble(productModel.getValueAt(selectedRow, 3).toString());
 
+                // Cart columns: 0 ID, 1 name, 2 quantity, 3 subtotal.
                 double subtotal = price * quantity;
                 cartModel.addRow(new Object[]{id, name, quantity, String.format("%.2f", subtotal)});
                 productModel.setValueAt(stock - quantity, selectedRow, 4);
@@ -225,6 +249,7 @@ public class newServiceForm {
             }
         });
 
+        // Remove the selected cart row and return its quantity to product stock.
         productRemoveBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -251,6 +276,7 @@ public class newServiceForm {
             }
         });
 
+        // Turn the cart into a product bill that can be paid immediately.
         productConfirmProdOrderBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -287,6 +313,7 @@ public class newServiceForm {
                             .append(" = ").append(String.format("₱%.2f", subtotal));
                 }
 
+                // Product bills do not need admin approval, so approval is "Not Required".
                 billModel.addRow(new Object[]{
                         billID, currentClientName, "Product", productDetails.toString(), String.format("₱%.2f", total),
                         "Not Required", "Unpaid", new SimpleDateFormat("dd/MM/yyyy hh:mm a").format(new Date()), currentClientUsername
@@ -300,6 +327,7 @@ public class newServiceForm {
             }
         });
 
+        // Pay the selected bill after checking ownership, approval, and service completion.
         billingReviewBillBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -339,6 +367,7 @@ public class newServiceForm {
                         return;
                     }
 
+                    // Keep the bill's approval status in sync with the appointment.
                     approvalStatus = currentStatus;
                     billModel.setValueAt(approvalStatus, selectedRow, 5);
 
@@ -368,6 +397,7 @@ public class newServiceForm {
                     return;
                 }
 
+                // Small payment form shown inside a confirm dialog.
                 JComboBox<String> paymentMethodCMB = new JComboBox<>(new String[]{"Cash", "Debit", "Credit"});
                 JTextField cardNameTXT = new JTextField();
                 JTextField cardNumberTXT = new JTextField();
@@ -382,6 +412,7 @@ public class newServiceForm {
                 paymentPanel.add(new JLabel("Card Number:"));
                 paymentPanel.add(cardNumberTXT);
 
+                // Card fields are only enabled for Debit and Credit payments.
                 paymentMethodCMB.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
@@ -407,6 +438,7 @@ public class newServiceForm {
 
                     boolean cardPayment = selectedMethod.equals("Debit") || selectedMethod.equals("Credit");
                     if (cardPayment) {
+                        // Card payments require a cardholder name and a 12-19 digit number.
                         if (cardNameTXT.getText().trim().isEmpty() || cardNumberTXT.getText().trim().isEmpty()) {
                             JOptionPane.showMessageDialog(servicesPanel, "Please enter the cardholder name and card number.");
                             return;
@@ -423,6 +455,7 @@ public class newServiceForm {
                         selectedMethod = "Credit Card";
                     }
 
+                    // Mark the bill as paid and save the payment transaction.
                     billModel.setValueAt("Paid", selectedRow, 6);
 
                     int receiptID = sharedData.nextReceiptID();
@@ -452,6 +485,7 @@ public class newServiceForm {
             }
         });
 
+        // Build and show a full receipt from the selected transaction and its bill.
         billingViewRecieptBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -543,6 +577,7 @@ public class newServiceForm {
             }
         });
 
+        // Refresh the review area whenever a bill or transaction selection changes.
         ListSelectionListener reviewListener = new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent e) {
@@ -556,6 +591,7 @@ public class newServiceForm {
 
         updateBillingReviewText();
 
+        // Ask for confirmation before clearing the session and returning to login.
         billingLogOutBT.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -574,6 +610,10 @@ public class newServiceForm {
         });
     }
 
+    /**
+     * Rebuilds the billing review text area from the selected bill/transaction,
+     * or shows a summary of all of the client's records when nothing is selected.
+     */
     private void updateBillingReviewText() {
         if (billingTXTArea == null) {
             return;
@@ -657,6 +697,7 @@ public class newServiceForm {
         billingTXTArea.setCaretPosition(0);
     }
 
+    /** Adds all unpaid bills that belong to the logged-in client. */
     private double calculateOutstandingBalance() {
         double balance = 0;
 
@@ -670,10 +711,12 @@ public class newServiceForm {
         return balance;
     }
 
+    /** Returns the client dashboard panel so it can be placed inside a JFrame. */
     public JPanel getServicesPanel() {
         return servicesPanel;
     }
 
+    /** Hides a model column from a JTable while keeping the data in the model. */
     private void hideTableColumn(JTable table, int modelColumn) {
         int viewColumn = table.convertColumnIndexToView(modelColumn);
         if (viewColumn >= 0) {
@@ -681,6 +724,7 @@ public class newServiceForm {
         }
     }
 
+    /** Filters a table so only rows for the current client are visible. */
     private void filterByClient(JTable table, DefaultTableModel model, int clientColumn) {
         final String client = currentClientUsername;
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(model);

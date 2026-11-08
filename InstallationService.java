@@ -1,9 +1,14 @@
+/**
+ * Installation service type.
+ * The switch below maps each installation item to its standard price.
+ */
 public class InstallationService extends AutomotiveService {
 
     public InstallationService() {
         super("Installation Services");
     }
 
+    /** Returns the price for the selected installation item. */
     @Override
     public double getServicePrice(String serviceDetail) {
 
@@ -46,6 +51,7 @@ public class InstallationService extends AutomotiveService {
         }
     }
 
+    /** Returns the installation items shown in the appointment dropdown. */
     @Override
     public String[] getServiceDetails() {
 

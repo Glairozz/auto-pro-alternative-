@@ -1,9 +1,14 @@
+/**
+ * Repair service type.
+ * The switch below maps each repair problem to its standard price.
+ */
 public class RepairService extends AutomotiveService {
 
     public RepairService() {
         super("Repair Services");
     }
 
+    /** Returns the price for the selected repair problem. */
     @Override
     public double getServicePrice(String serviceDetail) {
 
@@ -48,6 +53,7 @@ public class RepairService extends AutomotiveService {
         }
     }
 
+    /** Returns the repair problems shown in the appointment dropdown. */
     @Override
     public String[] getServiceDetails() {
 

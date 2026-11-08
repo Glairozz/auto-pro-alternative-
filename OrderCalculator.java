@@ -1,7 +1,14 @@
 import javax.swing.table.DefaultTableModel;
 
+/**
+ * Calculates money values for the product cart.
+ */
 public class OrderCalculator {
 
+    /**
+     * Adds every subtotal in the cart table.
+     * Column 3 of each row stores the subtotal for that product.
+     */
     public static double calculateCartTotal(DefaultTableModel cartModel) {
         double total = 0;
 

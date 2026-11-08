@@ -15,6 +15,7 @@ import java.awt.Color;
  */
 public class Theme {
 
+    /** Applies FlatLaf and the shared colors, rounded corners, and table styling. */
     public static void init() {
         try {
             // FlatLaf = a free library that makes Swing look modern (flat, clean, rounded)

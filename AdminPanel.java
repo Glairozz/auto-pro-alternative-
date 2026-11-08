@@ -6,7 +6,12 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.TableRowSorter;
 
+/**
+ * Admin dashboard.
+ * The tabs manage appointments, products, billing history, transactions, and service status.
+ */
 public class AdminPanel {
+    // Components created by the IntelliJ GUI Designer .form file.
     private JTabbedPane tabbedPane1;
     private JButton btnLogOut;
     private JTable tblClientAppointmentMastList;
@@ -34,12 +39,14 @@ public class AdminPanel {
     private JButton btnCancelService;
     private JTable tblServiceManagement;
 
+    // Shared table models owned by AutomotiveData.
     private DefaultTableModel clientAppointmentListTable;
     private DefaultTableModel productMasterlistTable;
     private DefaultTableModel transactionRecordsTable;
     private DefaultTableModel billingRecordsTable;
 
 
+    /** Returns the admin panel so it can be placed inside a JFrame. */
     public JPanel getAdminPanel() {
         return adminPanel;
     }
@@ -48,6 +55,7 @@ public class AdminPanel {
 
     public AdminPanel() {
 
+        // Connect the visual tables to the shared data models.
         clientAppointmentListTable = sharedData.getAppointmentModel();
         productMasterlistTable = sharedData.getProductModel();
         transactionRecordsTable = sharedData.getTransactionModel();
@@ -58,11 +66,14 @@ public class AdminPanel {
         tblProdMasterList.setModel(productMasterlistTable);
         tblTransactionRecords.setModel(transactionRecordsTable);
         tblAdminBillHistory.setModel(billingRecordsTable);
+
+        // Hide the client-username columns in the admin views.
         hideTableColumn(tblClientAppointmentMastList, 9);
         hideTableColumn(tblServiceManagement, 9);
         hideTableColumn(tblAdminBillHistory, 8);
         hideTableColumn(tblTransactionRecords, 6);
 
+        // Show only bills that have not been paid yet.
         TableRowSorter<DefaultTableModel> unpaidSorter = new TableRowSorter<>(billingRecordsTable);
         unpaidSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
             @Override
@@ -89,6 +100,7 @@ public class AdminPanel {
             }
         });
 
+        // Approve the selected appointment.
         btnConfirmApp.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -121,6 +133,7 @@ public class AdminPanel {
             }
         });
 
+        // Cancel the selected appointment unless it was already approved.
         btnCancelAppointment.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -152,6 +165,7 @@ public class AdminPanel {
             }
         });
 
+        // Show all stored details for the selected appointment.
         btnInspectEstimate.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -182,6 +196,7 @@ public class AdminPanel {
             }
         });
 
+        // Repaint the billing and transaction tables.
         btnRefreshBillHistory.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -191,6 +206,7 @@ public class AdminPanel {
             }
         });
 
+        // Show the receipt for the selected payment transaction.
         btnViewReceipt.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -217,6 +233,7 @@ public class AdminPanel {
             }
         });
 
+        // Clear the session and return to the login screen.
         btnLogOut.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -234,6 +251,7 @@ public class AdminPanel {
             }
         });
 
+        // Add a new product after validating the fields and checking for duplicates.
         btnProdAdd.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -270,6 +288,7 @@ public class AdminPanel {
             }
         });
 
+        // Save the edited values back into the selected product row.
         btnProdUpdate.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -315,6 +334,7 @@ public class AdminPanel {
             }
         });
 
+        // Remove the selected product and clear the edit fields.
         btnProdDelete.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -334,6 +354,7 @@ public class AdminPanel {
             }
         });
 
+        // Clear the product form without deleting anything.
         btnProdClear.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -344,6 +365,7 @@ public class AdminPanel {
                 tblProdMasterList.clearSelection();
             }
         });
+        // Start the selected service after checking approval and completion state.
         btnStartService.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -383,6 +405,7 @@ public class AdminPanel {
 
             }
         });
+        // Mark the selected approved service as completed.
         btnCompleted.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -416,6 +439,7 @@ public class AdminPanel {
                 }
             }
         });
+        // Cancel a service appointment that has not been approved yet.
         btnCancelService.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -448,6 +472,7 @@ public class AdminPanel {
         });
     }
 
+    /** Hides a model column from a JTable while keeping the data in the model. */
     private void hideTableColumn(JTable table, int modelColumn) {
         int viewColumn = table.convertColumnIndexToView(modelColumn);
         if (viewColumn >= 0) {

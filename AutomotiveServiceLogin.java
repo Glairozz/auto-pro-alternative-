@@ -1,7 +1,12 @@
 import javax.swing.*;
 import java.awt.Dimension;
 
+/**
+ * Login screen for admins and clients.
+ * A successful login opens the matching dashboard and closes this window.
+ */
 public class AutomotiveServiceLogin {
+    // Both dashboards use the same fixed window size.
     private static final Dimension ADMIN_CLIENT_WINDOW_SIZE = new Dimension(1100, 700);
 
     private JTabbedPane tabbedPane1;
@@ -13,11 +18,13 @@ public class AutomotiveServiceLogin {
     private JButton btnClientLogin;
     private JButton btnClientRegister;
     private JPanel mainPanel;
+    /** Returns the login panel so it can be placed inside a JFrame. */
     public JPanel getMainPanel(){
         return mainPanel;
     }
 
     public AutomotiveServiceLogin() {
+        // Admin login: check the admin account table, then open the admin dashboard.
         btnAdminLogin.addActionListener(e -> {
             String adminPass = txtAdminPass.getText();
             String adminUser = txtAdminUser.getText().trim();
@@ -30,6 +37,7 @@ public class AutomotiveServiceLogin {
             }
         });
 
+        // Client login: save the session user, then open the client dashboard.
         btnClientLogin.addActionListener(e -> {
             String clientPass = txtClientPass.getText();
             String clientUser = txtClientUser.getText().trim();
@@ -44,12 +52,14 @@ public class AutomotiveServiceLogin {
             }
         });
 
+        // Registration button: open the client registration form.
         btnClientRegister.addActionListener(e -> {
             try {
                 JFrame registerFrame = new JFrame("Registration");
                 AutomotiveClientInfo clientInfo = new AutomotiveClientInfo();
                 JPanel panel = clientInfo.getRegisterPanel();
 
+                // The form must provide a panel before the window can be shown.
                 if (panel == null) {
                     JOptionPane.showMessageDialog(null, "Error: getRegisterPanel() returned null. Check AutomotiveClientInfo.java!", "Null Panel Error", JOptionPane.ERROR_MESSAGE);
                     return;
@@ -67,6 +77,7 @@ public class AutomotiveServiceLogin {
         });
     }
 
+    /** Closes the login window after another screen has opened. */
     private void closeLoginWindow() {
         JFrame loginFrame = (JFrame) SwingUtilities.getWindowAncestor(mainPanel);
         if (loginFrame != null) {
@@ -74,6 +85,7 @@ public class AutomotiveServiceLogin {
         }
     }
 
+    /** Applies the shared fixed size and centers the window on the screen. */
     private static void applyFixedWindowSize(JFrame frame) {
         frame.setPreferredSize(ADMIN_CLIENT_WINDOW_SIZE);
         frame.pack();
@@ -82,6 +94,7 @@ public class AutomotiveServiceLogin {
         frame.setLocationRelativeTo(null);
     }
 
+    /** Opens a dashboard panel in a fixed-size window. */
     private static void showFixedSizeWindow(String title, JPanel panel) {
         JFrame frame = new JFrame(title);
         frame.setContentPane(panel);
@@ -90,6 +103,7 @@ public class AutomotiveServiceLogin {
         frame.setVisible(true);
     }
 
+    /** Opens a fresh login window; used after registration or logout. */
     static void showLoginWindow(String title) {
         JPanel panel = new AutomotiveServiceLogin().getMainPanel();
         if (panel == null) {
@@ -105,6 +119,7 @@ public class AutomotiveServiceLogin {
         frame.setVisible(true);
     }
 
+    /** Starts the application by applying the theme and showing the login screen. */
     public static void main(String[] args){
         Theme.init();
         SwingUtilities.invokeLater(() -> showLoginWindow(""));
